@@ -870,3 +870,40 @@ end, {
     return {}
   end,
 })
+
+local workflow = require("aws.lambda.workflow")
+
+local function lambda_workflow_command(name, desc, action)
+  vim.api.nvim_create_user_command(name, function(opts)
+    local _, call_opts = parse_flags(opts.fargs)
+    action(call_opts)
+  end, {
+    nargs = "*",
+    desc = "aws.nvim: " .. desc,
+    complete = function(arglead)
+      if arglead:sub(1, 1) ~= "-" then return {} end
+      local out = {}
+      for _, flag in ipairs({ "--region", "--profile" }) do
+        if flag:find(arglead, 1, true) == 1 then table.insert(out, flag) end
+      end
+      return out
+    end,
+  })
+end
+
+lambda_workflow_command("AwsLambdaUpload", "upload bound Lambda source", function(opts)
+  workflow.upload_current(opts)
+end)
+lambda_workflow_command("AwsLambdaInvoke", "invoke bound Lambda", function(opts)
+  workflow.invoke_current(opts)
+end)
+lambda_workflow_command("AwsLambdaUploadInvoke", "upload and invoke bound Lambda", function(opts)
+  workflow.upload_and_invoke(opts)
+end)
+lambda_workflow_command("AwsLambdaLogs", "follow bound Lambda logs", function(opts)
+  workflow.tail_logs(opts)
+end)
+
+vim.api.nvim_create_user_command("AwsLambdaLogsStop", function()
+  workflow.stop_logs()
+end, { desc = "aws.nvim: stop live Lambda logs" })

@@ -73,6 +73,21 @@ local function hint_line()
   if km.refresh then
     table.insert(hints, km.refresh .. " refresh")
   end
+  if km.download_source then
+    table.insert(hints, km.download_source .. " download source")
+  end
+  if km.upload then
+    table.insert(hints, km.upload .. " upload")
+  end
+  if km.invoke then
+    table.insert(hints, km.invoke .. " invoke")
+  end
+  if km.upload_invoke then
+    table.insert(hints, km.upload_invoke .. " upload + invoke")
+  end
+  if km.live_logs then
+    table.insert(hints, km.live_logs .. " live logs")
+  end
   return table.concat(hints, "  |  ")
 end
 
@@ -353,6 +368,43 @@ function M.open(call_opts)
       end
       local log_group = "/aws/lambda/" .. name
       require("aws.cloudwatch.streams").open(log_group, call_opts)
+    end,
+
+    download_source = function()
+      local name = fn_under_cursor(st)
+      if not name then
+        vim.notify("aws.nvim: no function under cursor", vim.log.levels.WARN)
+        return
+      end
+      require("aws.lambda.workflow").download_source(name, call_opts)
+    end,
+
+    upload = function()
+      local name = fn_under_cursor(st)
+      if name then
+        require("aws.lambda.workflow").upload_function(name, call_opts)
+      end
+    end,
+
+    invoke = function()
+      local name = fn_under_cursor(st)
+      if name then
+        require("aws.lambda.workflow").invoke_function(name, call_opts)
+      end
+    end,
+
+    upload_invoke = function()
+      local name = fn_under_cursor(st)
+      if name then
+        require("aws.lambda.workflow").upload_and_invoke_function(name, call_opts)
+      end
+    end,
+
+    live_logs = function()
+      local name = fn_under_cursor(st)
+      if name then
+        require("aws.lambda.workflow").tail_logs(call_opts, name)
+      end
     end,
 
     delete = delete_one,

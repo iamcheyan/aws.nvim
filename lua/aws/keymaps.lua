@@ -150,6 +150,11 @@ function M.apply_lambda(buf, actions)
   map(buf, km.filter, actions.filter, "filter functions")
   map(buf, km.clear_filter, actions.clear_filter, "clear filter")
   map(buf, km.refresh, actions.refresh, "refresh functions")
+  map(buf, km.download_source, actions.download_source, "download Lambda source")
+  map(buf, km.upload, actions.upload, "upload Lambda source")
+  map(buf, km.invoke, actions.invoke, "invoke Lambda")
+  map(buf, km.upload_invoke, actions.upload_invoke, "upload and invoke Lambda")
+  map(buf, km.live_logs, actions.live_logs, "follow Lambda logs")
   -- Visual-mode delete
   vmap(buf, km.delete, actions.delete_visual, "delete selected lambda functions")
 end

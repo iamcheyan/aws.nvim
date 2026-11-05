@@ -5,6 +5,7 @@ local M = {}
 ---@param opts AwsConfig|nil
 function M.setup(opts)
   require("aws.config").setup(opts)
+  require("aws.lambda.workflow").setup_auto_deploy(require("aws.config").values.lambda.auto_deploy)
 end
 
 --- CloudFormation operations.
@@ -18,6 +19,7 @@ M.cloudwatch = require("aws.cloudwatch")
 
 --- Lambda operations.
 M.lambda = require("aws.lambda")
+M.lambda.workflow = require("aws.lambda.workflow")
 
 --- ACM (Certificate Manager) operations.
 M.acm = require("aws.acm")

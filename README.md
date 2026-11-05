@@ -404,5 +404,34 @@ aws.nvim/
         └── detail.lua              # VPC detail viewer (6 parallel calls, vertical split)
 ```
 
-All CLI calls are asynchronous (`vim.loop.spawn`); the editor never blocks
-while waiting for AWS responses.
+## Lambda development workflow
+
+The Lambda list opened through `:AwsPicker` includes these actions:
+
+| Key | Action |
+|---|---|
+| `D` | Download selected function source into `.aws/lambda/<function-name>` in the Neovim working directory |
+| `U` | Upload the local binding for the selected function |
+| `I` | Prompt for JSON and invoke the selected, locally bound function |
+| `R` | Upload the selected function, then invoke it |
+| `L` (`Shift-L`) | Follow the selected function's CloudWatch logs in a split; press `Shift-L` again or run `:AwsLambdaLogsStop` to stop |
+| `l` | Open the existing CloudWatch log stream browser |
+| `<F5>` | Refresh the Lambda list |
+
+Downloads use `aws lambda get-function` and `Code.Location`, display curl progress, extract into a staging directory, validate archive paths and reject symbolic links, then replace the old cache. The plugin opens the first available entry in this order: `app.py`, `index.js`, `handler.py`, `main.py`. `.aws-meta.json` stores the function name, AWS region, and account.
+
+From a source file inside a binding, `:AwsLambdaUpload`, `:AwsLambdaInvoke`, `:AwsLambdaUploadInvoke`, and `:AwsLambdaLogs` are also available. They accept `--profile` and `--region`, such as `:AwsLambdaUpload --profile prod --region ap-northeast-1`. Upload archives the source directory and calls `aws lambda update-function-code`; invoke displays the response and decoded AWS logs in a floating buffer. AWS CLI errors are reported verbatim.
+
+Auto deploy after save is opt-in:
+
+```lua
+require("aws").setup({
+  lambda = {
+    auto_deploy = true,
+  },
+})
+```
+
+When enabled, only files under `.aws/lambda/<function-name>/` deploy after save. Ordinary project files are ignored. AWS operations, downloads, extraction, deployment, invoke, and live log tailing run asynchronously. The workflow uses the existing AWS CLI setup and requires `curl`, `unzip` (including `zipinfo`), and `zip` on `PATH`.
+
+All CLI calls are asynchronous; AWS service operations use the existing async runner and the Lambda workflow uses `vim.system` so Neovim remains responsive.

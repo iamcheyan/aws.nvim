@@ -45,6 +45,11 @@ local M = {}
 ---@field refresh      string|false  re-fetch from AWS
 ---@field close        string|false  close the window
 ---@field detail_logs  string|false  open CW log streams from the detail buffer
+---@field download_source string|false download source archive for function under cursor
+---@field upload string|false upload current bound Lambda source
+---@field invoke string|false invoke current bound Lambda
+---@field upload_invoke string|false upload then invoke current bound Lambda
+---@field live_logs string|false follow Lambda logs
 
 ---@class AwsKeymapsACM
 --- Keymaps active inside ACM (Certificate Manager) buffers.
@@ -163,11 +168,15 @@ local M = {}
 ---@field in_progress string
 ---@field deleted     string
 
+---@class AwsLambdaConfig
+---@field auto_deploy boolean  deploy bound Lambda after saving files in its source directory
+
 ---@class AwsConfig
 ---@field default_aws_profile  string|nil  AWS_PROFILE default (nil = inherit environment)
 ---@field default_aws_region   string|nil  AWS_DEFAULT_REGION default (nil = inherit environment)
 ---@field icons    AwsIcons
 ---@field keymaps  AwsKeymaps
+---@field lambda   AwsLambdaConfig
 ---@class AwsCallOpts
 --- Per-call overrides passed to individual commands (e.g. from :AwsCF --region eu-west-1).
 --- When set these take precedence over default_aws_profile / default_aws_region.
@@ -176,6 +185,7 @@ local M = {}
 
 local defaults = {
   -- Auth is delegated to the user; these are optional convenience defaults.
+  lambda = { auto_deploy = false },
   default_aws_profile = nil,
   default_aws_region = nil,
 
@@ -217,13 +227,18 @@ local defaults = {
     },
     lambda = {
       open_detail = "<CR>",
-      open_logs = "L",
+      open_logs = "l",
       delete = "dd",
       filter = "F",
       clear_filter = "C",
-      refresh = "R",
+      refresh = "<F5>",
       close = "q",
       detail_logs = "L",
+      download_source = "D",
+      upload = "U",
+      invoke = "I",
+      upload_invoke = "R",
+      live_logs = "<S-L>",
     },
     acm = {
       open_detail = "<CR>",
