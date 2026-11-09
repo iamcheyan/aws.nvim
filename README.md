@@ -458,9 +458,40 @@ Every resource action operates on the AWS resource that owns the current buffer.
 
 `--profile` and `--region` on any action override the metadata values.
 
-### Invoke
+### Invoke payload workflow
 
-`:AwsInvoke` runs `aws lambda invoke --function-name <name> response.json --cli-binary-format raw-in-base64-out`, opens `response.json`, and shows `StatusCode`, `FunctionError`, and `ExecutedVersion`. The interactive panel from `I` in the Lambda list is still there when you want to edit a JSON payload first.
+Each downloaded Lambda owns two files next to its sources:
+
+```text
+lambda/<function-name>/
+├── app.py              # sources
+├── invoke.json         # request payload (created as {})
+├── response.json       # last invoke result
+└── .aws-resource.json  # metadata
+```
+
+`invoke.json` is the only payload source: nothing is generated on the fly and an empty event is never sent. When a Lambda is downloaded and `invoke.json` is missing, `{}` is created.
+
+| Key | Action |
+|---|---|
+| `e` | Edit Invoke Payload — opens `invoke.json`, creating `{}` first when missing |
+| `i` | Invoke Current Payload — runs `aws lambda invoke --function-name <name> --payload fileb://invoke.json ...`, writes `response.json` |
+| `v` | View Response — opens `response.json` from the last invoke |
+| `r` | Upload + Invoke — uploads the source, then invokes with `invoke.json` |
+
+Pressing `i` before the payload exists creates `invoke.json`, opens it, and refuses to invoke until you edit it (`invoke.json created. Please edit payload before invoking.`). Invalid JSON is reported and never reaches the AWS CLI. The result window shows `StatusCode`, `FunctionError`, `ExecutedVersion`, the payload path, and the decoded CloudWatch logs.
+
+`:AwsInvoke` (resource action) uses exactly the same file, so the key and the command stay in sync. The interactive panel (`I`) is now backed by `invoke.json` as well: its edits are written back to the file before invoking.
+
+The payload path is resolved through `get_current_payload_file(dir)`, so a future multi-payload layout (`payloads/default.json`, `payloads/test1.json`, ...) can be added without touching invoke logic.
+
+![invoke.json created and opened](docs/screenshots/payload-create.png)
+
+![payload edited before invoking](docs/screenshots/payload-edit.png)
+
+![invoke result with StatusCode, FunctionError and ExecutedVersion](docs/screenshots/payload-invoke.png)
+
+![response.json opened with v](docs/screenshots/payload-response.png)
 
 ### Logs
 

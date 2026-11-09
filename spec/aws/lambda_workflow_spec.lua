@@ -231,7 +231,7 @@ describe("Lambda workflow", function()
     assert.same({ "known good source" }, vim.fn.readfile(dir .. "/app.py"))
   end)
 
-  it("upload and invoke from the interactive panel emits AWS calls and shows the result", function()
+  it("uploads and then invokes with invoke.json", function()
     local dir = fixture .. "/lambda/payments-api"
     vim.fn.mkdir(dir, "p")
     vim.fn.writefile(
@@ -239,19 +239,60 @@ describe("Lambda workflow", function()
       dir .. "/.aws-meta.json"
     )
     vim.fn.writefile({ "print('updated')" }, dir .. "/app.py")
+    vim.fn.writefile({ '{"order":"42"}' }, dir .. "/invoke.json")
     vim.cmd.edit(vim.fn.fnameescape(dir .. "/app.py"))
 
     workflow.upload_and_invoke({ profile = "prod" })
-    wait_for(function()
-      return require("aws.lambda.invoke_ui").inspect().last_result ~= nil
-    end)
+    assert.is_true(vim.wait(10000, function()
+      return vim.fn.bufnr("aws://lambda/invoke/payments-api") > 0
+    end, 10))
 
     local calls = table.concat(vim.fn.readfile(fixture .. "/aws.log"), "\n")
     assert.is_truthy(calls:find("lambda update%-function%-code", 1, false))
     assert.is_truthy(calls:find("lambda invoke", 1, true))
-    local result = require("aws.lambda.invoke_ui").inspect().last_result
-    assert.equals(200, result.status)
-    assert.is_truthy(result.response:find('"statusCode":200', 1, true))
+    assert.is_truthy(calls:find("--payload fileb://" .. dir .. "/invoke.json", 1, true))
+
+    local numbers = {}
+    for line in calls:gmatch("[^\n]+") do
+      if line:find("lambda update%-function%-code", 1, false) then
+        table.insert(numbers, "update")
+      elseif line:find("lambda invoke", 1, true) then
+        table.insert(numbers, "invoke")
+      end
+    end
+    assert.same({ "update", "invoke" }, numbers)
+
+    local result_buf = vim.fn.bufnr("aws://lambda/invoke/payments-api")
+    local text = table.concat(vim.api.nvim_buf_get_lines(result_buf, 0, -1, false), "\n")
+    assert.is_truthy(text:find("200", 1, true))
+    assert.is_truthy(text:find("invoke.json", 1, true))
+    assert.is_truthy(vim.fn.filereadable(dir .. "/response.json") == 1)
+  end)
+
+  it("creates invoke.json and skips the invoke when the payload is missing", function()
+    local dir = fixture .. "/lambda/payments-api"
+    vim.fn.mkdir(dir, "p")
+    vim.fn.writefile(
+      { vim.json.encode({ function_name = "payments-api", region = "ap-northeast-1" }) },
+      dir .. "/.aws-meta.json"
+    )
+    vim.fn.writefile({ "print('x')" }, dir .. "/app.py")
+    vim.cmd.edit(vim.fn.fnameescape(dir .. "/app.py"))
+
+    local meta, binding_dir = workflow.find_binding("payments-api")
+    assert.is_truthy(meta)
+    local result
+    workflow.invoke_file(binding_dir, "payments-api", nil, function(value)
+      result = value
+    end)
+    assert.is_true(vim.wait(3000, function()
+      return result ~= nil
+    end))
+
+    assert.is_false(result.ok)
+    assert.is_true(result.created)
+    assert.equals("{}", table.concat(vim.fn.readfile(dir .. "/invoke.json"), "\n"))
+    assert.same({}, vim.fn.readfile(fixture .. "/aws.log"))
   end)
 
   it("deploys saved bound files and ignores ordinary project files", function()

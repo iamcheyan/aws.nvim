@@ -25,8 +25,37 @@ local state = {
   last_result = nil,
 }
 
---- Payloads remembered per function so reopening the panel keeps the event.
+--- Payloads are stored in invoke.json inside the Lambda directory.
 local payloads = {}
+
+local function binding_dir(function_name)
+  local workflow = require("aws.lambda.workflow")
+  local _, dir = workflow.find_binding(function_name)
+  return dir
+end
+
+local function read_payload(function_name)
+  local dir = binding_dir(function_name)
+  if not dir then
+    return nil, nil
+  end
+  local path = require("aws.lambda.workflow").get_current_payload_file(dir)
+  if vim.fn.filereadable(path) ~= 1 then
+    return DEFAULT_PAYLOAD, dir
+  end
+  return table.concat(vim.fn.readfile(path), "\n"), dir
+end
+
+local function write_payload(function_name, text)
+  local dir = binding_dir(function_name)
+  if not dir then
+    return nil
+  end
+  local workflow = require("aws.lambda.workflow")
+  local path = workflow.get_current_payload_file(dir)
+  vim.fn.writefile(vim.split(text, "\n", { plain = true }), path)
+  return path
+end
 
 local function valid_function_name(name)
   return type(name) == "string" and name:match("^[%w_-]+$") ~= nil and name ~= "." and name ~= ".."
@@ -140,9 +169,17 @@ local function do_invoke(upload_first)
   state.busy = true
   set_status(upload_first and "uploading…" or "invoking…")
   local workflow = require("aws.lambda.workflow")
+  local dir = binding_dir(state.function_name)
+  if not dir then
+    state.busy = false
+    set_status("no local binding")
+    notify("download the Lambda before invoking it", vim.log.levels.WARN)
+    return
+  end
+  write_payload(state.function_name, payload)
 
   local function fire()
-    workflow.invoke_payload(state.function_name, payload, state.call_opts, function(result)
+    workflow.invoke_file(dir, state.function_name, state.call_opts, function(result)
       state.busy = false
       if not result.ok then
         set_status("failed")
@@ -305,7 +342,8 @@ function M.open(function_name, call_opts, opts)
   vim.wo[json_win].signcolumn = "no"
   vim.wo[json_win].winfixheight = true
   vim.wo[json_win].winbar = "%#AwsInvokeButton# AWS Lambda invoke%*  ·  " .. function_name
-  local payload = payloads[function_name] or DEFAULT_PAYLOAD
+  local file_payload = read_payload(function_name)
+  local payload = file_payload or payloads[function_name] or DEFAULT_PAYLOAD
   vim.api.nvim_buf_set_lines(json_buf, 0, -1, false, vim.split(payload, "\n", { plain = true }))
   attach_json_keymaps(json_buf)
 

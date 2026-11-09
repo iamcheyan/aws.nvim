@@ -42,6 +42,10 @@ local M = {}
 ---@field detail_logs  string|false  open CW log streams from the detail buffer
 ---@field download_source string|false download source archive for function under cursor
 ---@field edit_source     string|false open an existing bound source for editing
+---@field edit_payload   string|false open invoke.json for editing
+---@field invoke_payload string|false invoke with invoke.json as the payload
+---@field view_response  string|false open response.json from the last invoke
+---@field invoke_panel   string|false open the interactive invoke panel
 ---@field upload string|false upload current bound Lambda source
 ---@field invoke string|false invoke current bound Lambda
 ---@field upload_invoke string|false upload then invoke current bound Lambda
@@ -233,9 +237,12 @@ local defaults = {
       detail_logs = "L",
       download_source = "D",
       edit_source = "E",
+      edit_payload = "e",
+      invoke_payload = "i",
+      view_response = "v",
       upload = "U",
-      invoke = "I",
-      upload_invoke = "R",
+      invoke_panel = "I",
+      upload_invoke = "r",
       live_logs = "<S-L>",
     },
     kms = {

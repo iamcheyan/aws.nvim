@@ -152,6 +152,7 @@ end
 local function get_call_opts(meta, call_opts)
   local opts = vim.tbl_extend("force", {}, call_opts or {})
   opts.region = opts.region or meta.region
+  opts.profile = opts.profile or meta.profile
   return opts
 end
 
@@ -334,6 +335,7 @@ local function download_and_publish(function_name, call_opts, done)
                   vim.fn.delete(backup, "rf")
                 end
 
+                M.ensure_payload(root)
                 notify("source downloaded to " .. vim.fn.fnamemodify(root, ":~"))
                 if identity.code ~= 0 then
                   notify("could not read AWS account; binding saved as unknown", vim.log.levels.WARN)
@@ -364,6 +366,8 @@ local function find_binding(function_name)
   end
   return meta, dir
 end
+
+M.find_binding = find_binding
 
 local function binding_for_function(function_name)
   if not valid_function_name(function_name) then
@@ -415,8 +419,15 @@ end
 ---@return string[]
 function M.result_lines(result)
   local lines = { "Status: " .. tostring(result.status or "unknown") }
+  table.insert(lines, "FunctionError: " .. tostring(result.function_error or "none"))
+  if result.executed_version then
+    table.insert(lines, "ExecutedVersion: " .. tostring(result.executed_version))
+  end
   if result.request_id then
     table.insert(lines, "RequestId: " .. tostring(result.request_id))
+  end
+  if result.payload_path then
+    table.insert(lines, "Payload: " .. tostring(result.payload_path))
   end
   table.insert(lines, "")
   table.insert(lines, "Response:")
@@ -429,12 +440,88 @@ function M.result_lines(result)
   return lines
 end
 
---- Invoke a Lambda function with a raw JSON event payload.
+--- File used for the next invoke payload.
+--- Kept as a function so payload sets can be switched later without touching
+--- the invoke logic.
+---@param dir string
+---@return string
+function M.get_current_payload_file(dir)
+  return dir .. "/invoke.json"
+end
+
+--- Ensure the payload file exists; returns its path and whether it was created.
+---@param dir string
+---@return string, boolean
+function M.ensure_payload(dir)
+  local path = M.get_current_payload_file(dir)
+  if vim.fn.filereadable(path) == 1 then
+    return path, false
+  end
+  if vim.fn.writefile({ "{}" }, path) ~= 0 then
+    return path, false
+  end
+  return path, true
+end
+
+--- Path of the response written by the last invoke.
+---@param dir string
+---@return string
+function M.response_file(dir)
+  return dir .. "/response.json"
+end
+
+--- Open the payload file for editing, creating `{}` when missing.
 ---@param function_name string
----@param event_json     string  raw JSON payload typed by the user
----@param call_opts      table|nil
----@param callback       fun(result: table)|nil receives { ok, response, logs, status, error }
-function M.invoke_payload(function_name, event_json, call_opts, callback)
+---@param call_opts table|nil
+---@param dir string|nil explicit resource directory
+---@return string|nil path
+function M.edit_payload(function_name, call_opts, dir)
+  local meta, bound_dir = find_binding(function_name)
+  local target = dir or bound_dir
+  if not target then
+    notify(
+      "no local source binding for Lambda " .. tostring(function_name) .. "; download it first",
+      vim.log.levels.WARN
+    )
+    return
+  end
+  local path, created = M.ensure_payload(target)
+  vim.cmd.edit(vim.fn.fnameescape(path))
+  if created then
+    notify("invoke.json created. Please edit payload before invoking.", vim.log.levels.WARN)
+  end
+  return path, meta
+end
+
+--- Open response.json for the Lambda (creating nothing).
+---@param function_name string
+---@param dir string|nil
+function M.view_response(function_name, dir)
+  local _, bound_dir = find_binding(function_name)
+  local target = dir or bound_dir
+  if not target then
+    notify(
+      "no local source binding for Lambda " .. tostring(function_name) .. "; download it first",
+      vim.log.levels.WARN
+    )
+    return
+  end
+  local path = M.response_file(target)
+  if vim.fn.filereadable(path) ~= 1 then
+    notify("no response.json yet for " .. tostring(function_name) .. "; run invoke first", vim.log.levels.WARN)
+    return
+  end
+  vim.cmd.edit(vim.fn.fnameescape(path))
+end
+
+--- Invoke a Lambda with the payload file inside the resource directory.
+--- Never builds a temporary payload and never sends an empty event.
+---@param dir string
+---@param function_name string
+---@param call_opts table|nil
+---@param callback fun(result: table)|nil
+---@param binding table|nil metadata for region/profile resolution
+function M.invoke_file(dir, function_name, call_opts, callback, binding)
   local function finish(result)
     if callback then
       callback(result)
@@ -451,47 +538,51 @@ function M.invoke_payload(function_name, event_json, call_opts, callback)
     finish({ ok = false, error = "invalid Lambda function name" })
     return
   end
-  if not pcall(vim.json.decode, event_json or "") then
-    finish({ ok = false, error = "invalid JSON event" })
+
+  local payload, created = M.ensure_payload(dir)
+  if created then
+    vim.cmd.edit(vim.fn.fnameescape(payload))
+    notify("invoke.json created. Please edit payload before invoking.", vim.log.levels.WARN)
+    finish({ ok = false, created = true, error = "invoke.json created; edit the payload first" })
     return
   end
 
-  local meta = find_binding(function_name)
-  local opts = get_call_opts(meta or {}, call_opts)
-  local input = vim.fn.tempname() .. ".json"
-  local output = vim.fn.tempname() .. ".json"
-  if vim.fn.writefile({ event_json }, input) ~= 0 then
-    finish({ ok = false, error = "could not write Lambda event input" })
+  local raw = table.concat(vim.fn.readfile(payload), "\n")
+  if not pcall(vim.json.decode, raw) then
+    notify("invoke.json is not valid JSON", vim.log.levels.ERROR)
+    finish({ ok = false, error = "invoke.json is not valid JSON" })
     return
   end
 
+  local opts = get_call_opts(binding or {}, call_opts)
+  local output = M.response_file(dir)
   local args = aws_args({
     "lambda",
     "invoke",
     "--function-name",
     function_name,
     "--payload",
-    "fileb://" .. input,
+    "fileb://" .. payload,
     "--cli-binary-format",
     "raw-in-base64-out",
     "--log-type",
     "Tail",
     output,
   }, opts)
+
   run(args, { text = true }, function(result)
-    vim.fn.delete(input)
     if result.code ~= 0 then
-      vim.fn.delete(output)
       finish({ ok = false, error = vim.trim(result.stderr or "AWS CLI invoke failed") })
       return
     end
     local response = vim.fn.filereadable(output) == 1 and table.concat(vim.fn.readfile(output), "\n")
       or "(empty response)"
-    vim.fn.delete(output)
     local meta_ok, invoke_meta = pcall(vim.json.decode, result.stdout or "{}")
-    local logs, status, request_id
+    local logs, status, request_id, function_error, executed_version
     if meta_ok and type(invoke_meta) == "table" then
       status = invoke_meta.StatusCode
+      function_error = invoke_meta.FunctionError
+      executed_version = invoke_meta.ExecutedVersion
       if type(invoke_meta.LogResult) == "string" and vim.base64 then
         local log_ok, decoded = pcall(vim.base64.decode, invoke_meta.LogResult)
         if log_ok then
@@ -505,37 +596,104 @@ function M.invoke_payload(function_name, event_json, call_opts, callback)
     finish({
       ok = true,
       response = response,
+      response_path = output,
+      payload_path = payload,
       logs = logs,
       status = status,
       request_id = request_id,
+      function_error = function_error,
+      executed_version = executed_version,
     })
   end)
 end
 
-local function open_invoke_ui(function_name, call_opts, mode)
-  require("aws.lambda.invoke_ui").open(function_name, call_opts, { mode = mode })
+--- Keep the older entry point working: payload text is written to invoke.json first.
+---@param function_name string
+---@param event_json string
+---@param call_opts table|nil
+---@param callback fun(result: table)|nil
+function M.invoke_payload(function_name, event_json, call_opts, callback)
+  local meta, dir = find_binding(function_name)
+  if not dir then
+    notify(
+      "no local source binding for Lambda " .. tostring(function_name) .. "; download it first",
+      vim.log.levels.WARN
+    )
+    if callback then
+      callback({ ok = false, error = "no local source binding" })
+    end
+    return
+  end
+  if not pcall(vim.json.decode, event_json or "") then
+    notify("invoke.json is not valid JSON", vim.log.levels.ERROR)
+    if callback then
+      callback({ ok = false, error = "invalid JSON" })
+    end
+    return
+  end
+  local path = M.get_current_payload_file(dir)
+  vim.fn.writefile(vim.split(event_json, "\n", { plain = true }), path)
+  M.invoke_file(dir, function_name, call_opts, callback, meta)
 end
 
-function M.invoke_current(call_opts)
-  local meta = current_binding()
+--- Invoke the Lambda bound to the current buffer with invoke.json.
+function M.invoke_current(call_opts, callback)
+  local meta, dir = current_binding()
   if meta then
-    open_invoke_ui(meta.function_name, get_call_opts(meta, call_opts), nil)
+    M.invoke_file(dir, meta.function_name, get_call_opts(meta, call_opts), callback, meta)
   end
 end
 
-function M.invoke_function(function_name, call_opts)
-  open_invoke_ui(function_name, call_opts or {}, nil)
+--- Invoke the named Lambda with its invoke.json.
+function M.invoke_function(function_name, call_opts, callback)
+  local meta, dir = find_binding(function_name)
+  if not meta then
+    notify(
+      "no local source binding for Lambda " .. tostring(function_name) .. "; download it first",
+      vim.log.levels.WARN
+    )
+    if callback then
+      callback({ ok = false, error = "no local source binding" })
+    end
+    return
+  end
+  M.invoke_file(dir, function_name, get_call_opts(meta, call_opts), callback, meta)
 end
 
-function M.upload_and_invoke(call_opts)
-  local meta = current_binding()
+local function upload_then_invoke(function_name, dir, call_opts, binding, callback)
+  archive_and_upload(binding, dir, get_call_opts(binding, call_opts), function(ok)
+    if not ok then
+      if callback then
+        callback({ ok = false, error = "upload failed" })
+      end
+      return
+    end
+    M.invoke_file(dir, function_name, get_call_opts(binding, call_opts), callback, binding)
+  end)
+end
+
+--- Upload the bound source, then invoke it with invoke.json.
+function M.upload_and_invoke(call_opts, callback)
+  local meta, dir = current_binding()
   if meta then
-    open_invoke_ui(meta.function_name, get_call_opts(meta, call_opts), "upload_invoke")
+    upload_then_invoke(meta.function_name, dir, call_opts, meta, callback)
   end
 end
 
-function M.upload_and_invoke_function(function_name, call_opts)
-  open_invoke_ui(function_name, call_opts or {}, "upload_invoke")
+--- Upload and invoke a named Lambda.
+function M.upload_and_invoke_function(function_name, call_opts, callback)
+  local meta, dir = find_binding(function_name)
+  if not meta then
+    notify(
+      "no local source binding for Lambda " .. tostring(function_name) .. "; download it first",
+      vim.log.levels.WARN
+    )
+    if callback then
+      callback({ ok = false, error = "no local source binding" })
+    end
+    return
+  end
+  upload_then_invoke(function_name, dir, call_opts, meta, callback)
 end
 
 function M.tail_logs(call_opts, function_name, log_group)

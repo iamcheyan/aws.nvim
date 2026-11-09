@@ -76,8 +76,17 @@ local function hint_line()
   if km.download_source then
     table.insert(hints, km.download_source .. " download")
   end
-  if km.invoke then
-    table.insert(hints, km.invoke .. " invoke")
+  if km.edit_payload then
+    table.insert(hints, km.edit_payload .. " payload")
+  end
+  if km.invoke_payload then
+    table.insert(hints, km.invoke_payload .. " invoke")
+  end
+  if km.view_response then
+    table.insert(hints, km.view_response .. " response")
+  end
+  if km.upload_invoke then
+    table.insert(hints, km.upload_invoke .. " upload+invoke")
   end
   if km.live_logs then
     table.insert(hints, km.live_logs .. " live logs")
@@ -317,7 +326,28 @@ function M.open(call_opts)
       end
     end,
 
-    invoke = function()
+    edit_payload = function()
+      local name = fn_under_cursor(st)
+      if name then
+        require("aws.lambda.workflow").edit_payload(name, call_opts)
+      end
+    end,
+
+    invoke_payload = function()
+      local name = fn_under_cursor(st)
+      if name then
+        require("aws.lambda.workflow").invoke_function(name, call_opts)
+      end
+    end,
+
+    view_response = function()
+      local name = fn_under_cursor(st)
+      if name then
+        require("aws.lambda.workflow").view_response(name)
+      end
+    end,
+
+    invoke_panel = function()
       local name = fn_under_cursor(st)
       if name then
         require("aws.lambda.invoke_ui").open(name, call_opts)
@@ -327,7 +357,7 @@ function M.open(call_opts)
     upload_invoke = function()
       local name = fn_under_cursor(st)
       if name then
-        require("aws.lambda.invoke_ui").open(name, call_opts, { mode = "upload_invoke" })
+        require("aws.lambda.workflow").upload_and_invoke_function(name, call_opts)
       end
     end,
 

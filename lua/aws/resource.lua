@@ -330,79 +330,57 @@ end
 -- Invoke
 -------------------------------------------------------------------------------
 
---- Invoke the Lambda described by the metadata and open its response file.
+--- Invoke the Lambda described by the metadata with invoke.json.
 ---@param call_opts table|nil
 ---@param callback fun(result: table)|nil
 function M.invoke(call_opts, callback)
-  local resource = M.require_resource()
+  local res = M.require_resource()
   local function finish(result)
     M.last_result = result
     if callback then
       callback(result)
     end
   end
-  if not resource then
+  if not res then
     finish({ ok = false, error = "AWS resource metadata not found" })
     return
   end
-  if resource.type ~= "lambda" then
-    notify(resource.type .. " invoke is not implemented yet", vim.log.levels.WARN)
-    finish({ ok = false, error = resource.type .. " invoke is not implemented yet" })
+  if res.type ~= "lambda" then
+    notify(res.type .. " invoke is not implemented yet", vim.log.levels.WARN)
+    finish({ ok = false, error = res.type .. " invoke is not implemented yet" })
     return
   end
 
-  local response_path = join(resource.dir, "response.json")
-  local args = aws_args({
-    "lambda",
-    "invoke",
-    "--function-name",
-    resource.name,
-    response_path,
-    "--cli-binary-format",
-    "raw-in-base64-out",
-  }, resource, call_opts)
-
-  run(args, { text = true }, function(result)
-    if result.code ~= 0 then
-      vim.api.nvim_echo({ { "❌ Invoke Failed", "DiagnosticError" } }, true, {})
-      show_lines("Invoke Failed", vim.split(vim.trim(result.stderr or "AWS CLI invoke failed"), "\n", { plain = true }))
-      finish({ ok = false, error = vim.trim(result.stderr or "AWS CLI invoke failed") })
+  local workflow = require("aws.lambda.workflow")
+  local binding = { region = res.region, profile = res.profile }
+  workflow.invoke_file(res.dir, res.name, call_opts, function(result)
+    if not result.ok then
+      if not result.created then
+        vim.api.nvim_echo({ { "❌ Invoke Failed", "DiagnosticError" } }, true, {})
+        show_lines("Invoke Failed", vim.split(tostring(result.error or "invoke failed"), "\n", { plain = true }))
+      end
+      finish(result)
       return
-    end
-
-    local ok, meta = pcall(vim.json.decode, result.stdout or "{}")
-    meta = ok and type(meta) == "table" and meta or {}
-    local status = tostring(meta.StatusCode or "unknown")
-    local function_error = meta.FunctionError and tostring(meta.FunctionError) or "none"
-    local executed = tostring(meta.ExecutedVersion or "-")
-
-    if vim.fn.filereadable(response_path) == 1 then
-      vim.cmd.edit(vim.fn.fnameescape(response_path))
-      pcall(vim.cmd, "silent! normal! gg=G")
     end
     vim.api.nvim_echo({ { "✅ Invoke Success", "DiagnosticOk" } }, true, {})
     show_lines("Lambda Invoke", {
       "✅ Invoke Success",
       "",
       "Function:",
-      "  " .. tostring(resource.name),
+      "  " .. tostring(res.name),
       "StatusCode:",
-      "  " .. status,
+      "  " .. tostring(result.status or "unknown"),
       "FunctionError:",
-      "  " .. function_error,
+      "  " .. tostring(result.function_error or "none"),
       "ExecutedVersion:",
-      "  " .. executed,
+      "  " .. tostring(result.executed_version or "-"),
+      "Payload:",
+      "  " .. tostring(result.payload_path or "-"),
       "Response:",
-      "  " .. response_path,
+      "  " .. tostring(result.response_path or "-"),
     })
-    finish({
-      ok = true,
-      status = meta.StatusCode,
-      function_error = meta.FunctionError,
-      executed_version = meta.ExecutedVersion,
-      response = response_path,
-    })
-  end)
+    finish(result)
+  end, binding)
 end
 
 -------------------------------------------------------------------------------

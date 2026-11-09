@@ -84,13 +84,29 @@ describe("Lambda invoke panel", function()
   end)
 
   it("invokes the function with the edited JSON payload on <C-s>", function()
+    local root = vim.fn.tempname()
+    local dir = root .. "/lambda/payments-api"
+    vim.fn.mkdir(dir, "p")
+    vim.fn.writefile(
+      vim.split(vim.json.encode({ function_name = "payments-api", region = "ap-northeast-1" }), "\n"),
+      dir .. "/.aws-meta.json"
+    )
+    vim.fn.writefile({ "{}" }, dir .. "/invoke.json")
+    local old_cwd = vim.fn.getcwd()
+    vim.cmd.cd(root)
+
     local st = open_panel()
     vim.api.nvim_buf_set_lines(st.json_buf, 0, -1, false, { '{"order":"42"}' })
 
     local captured = {}
-    local original = workflow.invoke_payload
-    workflow.invoke_payload = function(function_name, event_json, call_opts, callback)
-      table.insert(captured, { function_name = function_name, event_json = event_json, call_opts = call_opts })
+    local original = workflow.invoke_file
+    workflow.invoke_file = function(invoke_dir, function_name, call_opts, callback)
+      table.insert(captured, {
+        dir = invoke_dir,
+        function_name = function_name,
+        call_opts = call_opts,
+        payload = table.concat(vim.fn.readfile(invoke_dir .. "/invoke.json"), "\n"),
+      })
       vim.schedule(function()
         callback({ ok = true, status = 200, response = '{"ok":true}', logs = "START RequestId: req-1" })
       end)
@@ -102,11 +118,12 @@ describe("Lambda invoke panel", function()
       return ui.inspect().last_result ~= nil
     end))
 
-    workflow.invoke_payload = original
+    workflow.invoke_file = original
 
     assert.equals(1, #captured)
     assert.equals("payments-api", captured[1].function_name)
-    assert.equals('{"order":"42"}', captured[1].event_json)
+    assert.equals(dir, captured[1].dir)
+    assert.equals('{"order":"42"}', captured[1].payload)
     assert.equals("ap-northeast-1", captured[1].call_opts.region)
     assert.equals("ok · 200", ui.inspect().status)
 
@@ -115,6 +132,9 @@ describe("Lambda invoke panel", function()
     local result_text = table.concat(vim.api.nvim_buf_get_lines(result_buf, 0, -1, false), "\n")
     assert.is_truthy(result_text:find('"ok":true', 1, true))
     assert.is_truthy(result_text:find("START RequestId: req-1", 1, true))
+
+    vim.cmd.cd(old_cwd)
+    vim.fn.delete(root, "rf")
   end)
 
   it("keeps the panel open and reports invalid JSON without calling AWS", function()

@@ -501,15 +501,44 @@ Functions buffer                                      *aws-nvim-lambda-keys*
           no buffer is opened.
     E     Open the function source for editing. When no local copy exists
           the source is downloaded first and then opened.
+    e     Edit the invoke payload (invoke.json, created as {} when missing).
+    i     Invoke with invoke.json as the payload (see |aws-nvim-lambda-payload|).
+    v     View response.json from the last invoke.
     I     Open the interactive invoke panel (see |aws-nvim-lambda-invoke|).
     U     Upload the local binding for the function under cursor.
-    R     Upload the local binding, then invoke it from the panel.
+    r     Upload the local binding, then invoke it with invoke.json.
     <S-L> Follow the function's CloudWatch logs (Shift-L toggles).
     q     Close the split window.
 
     All keys are configurable via |aws-nvim-keymaps|.
 
     The list is paginated and all pages are fetched automatically.
+
+------------------------------------------------------------------------------
+Invoke payload                                *aws-nvim-lambda-payload*
+
+    A downloaded Lambda keeps three files next to its sources:
+
+        lambda/<function-name>/
+        |-- app.py
+        |-- invoke.json        request payload, created as {}
+        |-- response.json      result of the last invoke
+        `-- .aws-resource.json metadata
+
+    `invoke.json` is the only payload source. Pressing `i` runs:
+
+        aws lambda invoke --function-name {name} \
+          --payload fileb://invoke.json --cli-binary-format raw-in-base64-out \
+          [--log-type Tail] response.json
+
+    When invoke.json is missing, `i` creates it with {}, opens it and refuses
+    to invoke ("invoke.json created. Please edit payload before invoking.").
+    Invalid JSON is reported and never reaches the AWS CLI.
+
+    `e` edits invoke.json (creating it when missing), `v` opens response.json,
+    `r` uploads the source and then invokes with invoke.json. The payload path
+    comes from get_current_payload_file(), so switchable payload sets can be
+    added later without touching invoke logic.
 
 ------------------------------------------------------------------------------
 Interactive invoke panel                      *aws-nvim-lambda-invoke*

@@ -176,8 +176,28 @@ describe("AWS resource actions", function()
     assert.equals(1, vim.fn.filereadable(dir .. "/app.py"))
   end)
 
-  it("invokes the Lambda and shows StatusCode, FunctionError and ExecutedVersion", function()
+  it("creates invoke.json instead of invoking with an empty payload", function()
     local dir = make_resource(fixture .. "/aws-dev/lambda/dwh-dev")
+    vim.cmd.edit(vim.fn.fnameescape(dir .. "/handler.py"))
+
+    local result
+    resource.invoke(nil, function(value)
+      result = value
+    end)
+    assert.is_true(vim.wait(3000, function()
+      return result ~= nil
+    end))
+
+    assert.is_false(result.ok)
+    assert.is_true(result.created)
+    assert.equals("{}", table.concat(vim.fn.readfile(dir .. "/invoke.json"), "\n"))
+    assert.same({}, vim.fn.readfile(fixture .. "/aws.log"))
+    assert.equals("invoke.json", vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t"))
+  end)
+
+  it("invokes the Lambda with invoke.json and shows StatusCode, FunctionError and ExecutedVersion", function()
+    local dir = make_resource(fixture .. "/aws-dev/lambda/dwh-dev")
+    write(dir .. "/invoke.json", { '{"order":"42"}' })
     vim.cmd.edit(vim.fn.fnameescape(dir .. "/handler.py"))
 
     local result
@@ -191,7 +211,8 @@ describe("AWS resource actions", function()
     assert.is_true(result.ok)
     assert.equals(200, result.status)
     assert.equals("$LATEST", result.executed_version)
-    assert.equals(dir .. "/response.json", result.response)
+    assert.equals(dir .. "/response.json", result.response_path)
+    assert.equals(dir .. "/invoke.json", result.payload_path)
     assert.is_true(vim.fn.filereadable(dir .. "/response.json") == 1)
 
     local calls = table.concat(vim.fn.readfile(fixture .. "/aws.log"), "\n")
@@ -199,6 +220,7 @@ describe("AWS resource actions", function()
     assert.is_truthy(calls:find("--region ap-northeast-1", 1, true))
     assert.is_truthy(calls:find("lambda invoke --function-name dwh-dev", 1, true))
     assert.is_truthy(calls:find("--cli-binary-format raw-in-base64-out", 1, true))
+    assert.is_truthy(calls:find("--payload fileb://", 1, true), calls)
   end)
 
   it("tails the log group from metadata", function()
