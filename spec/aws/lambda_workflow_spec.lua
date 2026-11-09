@@ -131,13 +131,13 @@ describe("Lambda workflow", function()
   it("downloads, binds, and opens the preferred entrypoint asynchronously", function()
     workflow.download_source("payments-api", { profile = "prod", region = "ap-northeast-1" })
     wait_for(function()
-      return vim.fn.filereadable(fixture .. "/.aws/lambda/payments-api/.aws-meta.json") == 1
+      return vim.fn.filereadable(fixture .. "/lambda/payments-api/.aws-meta.json") == 1
     end)
 
     local metadata =
-      vim.json.decode(table.concat(vim.fn.readfile(fixture .. "/.aws/lambda/payments-api/.aws-meta.json"), "\n"))
+      vim.json.decode(table.concat(vim.fn.readfile(fixture .. "/lambda/payments-api/.aws-meta.json"), "\n"))
     assert.same({ function_name = "payments-api", region = "ap-northeast-1", account = "123456789012" }, metadata)
-    assert.equals(fixture .. "/.aws/lambda/payments-api/app.py", vim.api.nvim_buf_get_name(0))
+    assert.equals(fixture .. "/lambda/payments-api/app.py", vim.api.nvim_buf_get_name(0))
     local calls = table.concat(vim.fn.readfile(fixture .. "/aws.log"), "\n")
     assert.is_truthy(calls:find("--profile prod", 1, true))
     assert.is_truthy(calls:find("lambda get-function", 1, true))
@@ -168,7 +168,7 @@ describe("Lambda workflow", function()
     vim.api.nvim_win_set_cursor(0, { row, 0 })
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("D", true, false, true), "x", false)
 
-    local source = fixture .. "/.aws/lambda/payments-api/app.py"
+    local source = fixture .. "/lambda/payments-api/app.py"
     wait_for(function()
       return vim.fn.filereadable(source) == 1
     end)
@@ -177,7 +177,7 @@ describe("Lambda workflow", function()
   end)
 
   it("opens an existing bound Lambda source for editing without replacing local changes", function()
-    local dir = fixture .. "/.aws/lambda/payments-api"
+    local dir = fixture .. "/lambda/payments-api"
     vim.fn.mkdir(dir, "p")
     vim.fn.writefile(
       { vim.json.encode({ function_name = "payments-api", region = "ap-northeast-1", account = "123456789012" }) },
@@ -193,7 +193,7 @@ describe("Lambda workflow", function()
   end)
 
   it("rejects unsafe archives without replacing the existing source cache", function()
-    local dir = fixture .. "/.aws/lambda/payments-api"
+    local dir = fixture .. "/lambda/payments-api"
     vim.fn.mkdir(dir, "p")
     vim.fn.writefile({ "known good source" }, dir .. "/app.py")
     local errors = {}
@@ -218,7 +218,7 @@ describe("Lambda workflow", function()
   end)
 
   it("uploads the bound source and invokes it with a JSON event", function()
-    local dir = fixture .. "/.aws/lambda/payments-api"
+    local dir = fixture .. "/lambda/payments-api"
     vim.fn.mkdir(dir, "p")
     vim.fn.writefile(
       { vim.json.encode({ function_name = "payments-api", region = "ap-northeast-1", account = "123456789012" }) },
@@ -242,7 +242,7 @@ describe("Lambda workflow", function()
   end)
 
   it("deploys saved bound files and ignores ordinary project files", function()
-    local dir = fixture .. "/.aws/lambda/payments-api"
+    local dir = fixture .. "/lambda/payments-api"
     vim.fn.mkdir(dir, "p")
     vim.fn.writefile(
       { vim.json.encode({ function_name = "payments-api", region = "ap-northeast-1" }) },
@@ -269,7 +269,7 @@ describe("Lambda workflow", function()
   end)
 
   it("stops and reconnects live logs without blocking", function()
-    local dir = fixture .. "/.aws/lambda/payments-api"
+    local dir = fixture .. "/lambda/payments-api"
     vim.fn.mkdir(dir, "p")
     vim.fn.writefile(
       { vim.json.encode({ function_name = "payments-api", region = "ap-northeast-1" }) },

@@ -136,7 +136,7 @@ local function current_binding()
   end
   local binding, dir = read_binding(path)
   if not binding then
-    notify("current file is not inside a bound .aws/lambda/<function> directory", vim.log.levels.WARN)
+    notify("current file is not inside a bound lambda/<function> directory", vim.log.levels.WARN)
     return
   end
   return binding, dir
@@ -205,7 +205,7 @@ function M.download_source(function_name, call_opts)
       return
     end
     local cwd = vim.fn.getcwd()
-    local lambda_root = cwd .. "/.aws/lambda"
+    local lambda_root = cwd .. "/lambda"
     local root = lambda_root .. "/" .. function_name
     local stage = lambda_root .. "/." .. function_name .. ".download-" .. vim.fn.getpid() .. "-" .. vim.uv.hrtime()
     local backup = lambda_root .. "/." .. function_name .. ".backup-" .. vim.fn.getpid() .. "-" .. vim.uv.hrtime()
@@ -332,7 +332,7 @@ local function binding_for_function(function_name)
     notify("invalid Lambda function name", vim.log.levels.ERROR)
     return
   end
-  local root = vim.fn.getcwd() .. "/.aws/lambda/" .. function_name
+  local root = vim.fn.getcwd() .. "/lambda/" .. function_name
   local meta, dir = read_binding(metadata_path(root))
   if not meta or dir ~= root or meta.function_name ~= function_name then
     notify("no local source binding for Lambda " .. function_name, vim.log.levels.WARN)
@@ -481,7 +481,7 @@ function M.tail_logs(call_opts, function_name)
   end
   local meta
   if name then
-    local root = vim.fn.getcwd() .. "/.aws/lambda/" .. name
+    local root = vim.fn.getcwd() .. "/lambda/" .. name
     meta = read_binding(metadata_path(root)) or { function_name = name }
   else
     meta = current_binding()
