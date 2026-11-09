@@ -414,37 +414,73 @@ aws.nvim/
         └── detail.lua              # VPC detail viewer (6 parallel calls, vertical split)
 ```
 
-## Upload the current resource
+## Resource actions
 
-`:AwsUpload` (or `<leader>au`) syncs the AWS resource behind the current buffer back to AWS. You never type the function name, profile, region, or archive name: the plugin reads them from metadata.
+Every resource action operates on the AWS resource that owns the current buffer. You never type the function name, profile, region, log group, or archive name — all of it comes from metadata.
 
-Resolution order:
+| Command | Default key | Action |
+|---|---|---|
+| `:AwsDownload` | `<leader>rd` | Download the resource sources into `lambda/<name>/` and write `.aws-resource.json` |
+| `:AwsUpload` | `<leader>ru`, `<leader>au` | Save all buffers, package, and upload |
+| `:AwsInvoke` | `<leader>ri` | Invoke the Lambda, write `response.json`, show StatusCode / FunctionError / ExecutedVersion |
+| `:AwsLogs` | `<leader>rl` | `aws logs tail <log_group> --follow` in a split |
+| `:AwsRefresh` | `<leader>rr` | Re-read function configuration and sync it back into `.aws-resource.json` |
+| `:AwsMetadata` | `<leader>rm` | Show the metadata file the buffer belongs to |
 
-1. `.aws-resource.json`, searched from the current file's directory upwards;
-2. legacy `.aws-meta.json` bindings written by the Lambda download;
-3. directory layout: `.../lambda/<name>/`, `.../stepfunctions/<name>/`, `.../glue/<name>/`;
-4. the AWS Explorer buffer under the cursor (Lambda list).
+### Metadata
 
-`.aws-resource.json` has the highest priority and looks like this:
+`.aws-resource.json` is searched from the current file's directory upwards:
 
 ```json
 {
   "type": "lambda",
-  "function_name": "dwh-dev",
+  "account": "123456789012",
   "region": "ap-northeast-1",
-  "profile": "sbi-dwh-dev"
+  "profile": "sbi-dwh-dev",
+  "function_name": "dwh-dev",
+  "log_group": "/aws/lambda/dwh-dev"
 }
 ```
 
-Lambda upload runs the full flow:
+`.aws-resource.json` wins over the legacy `.aws-meta.json` binding, which in turn wins over the directory layout (`lambda/`, `stepfunctions/`, `glue/`) and the AWS Explorer selection. When nothing identifies a resource the action stops with `❌ AWS resource metadata not found` instead of guessing.
 
-1. `:wall` when any buffer is modified, so the archive matches what you see;
+### Download
+
+`:AwsDownload` resolves the function from the metadata (or from the Lambda list under the cursor), downloads the code into `lambda/<function-name>/`, and writes both `.aws-resource.json` and the legacy `.aws-meta.json`.
+
+### Upload
+
+1. `:wall` when a buffer is modified, so the archive matches what you see;
 2. work inside the resource directory (for example `aws-dev/lambda/dwh-dev/`);
-3. build `function.zip`, excluding `.git`, `__pycache__`, `.pytest_cache`, `.venv`, `node_modules`, `*.pyc`, and the archive itself;
-4. print the safety banner with the function name, profile, and region, then run `aws lambda update-function-code --function-name <name> --zip-file fileb://function.zip`;
-5. show `✅ Lambda Upload Success` with function, region, and profile, or `❌ Upload Failed` followed by the **raw** AWS CLI error (`AccessDeniedException`, ...) without rewording.
+3. build `function.zip`, excluding `.git`, `.github`, `__pycache__`, `.pytest_cache`, `.venv`, `node_modules`, `*.pyc`, `function.zip`, and `.aws-resource.json`;
+4. show the safety banner with function, profile, region, and account, then run `aws lambda update-function-code --function-name <name> --zip-file fileb://function.zip`;
+5. show `✅ Upload Success` with function, region, account, and profile, or `❌ Upload Failed` followed by the **raw** AWS CLI error (`AccessDeniedException`, ...) without rewording.
 
-`--profile` and `--region` on `:AwsUpload` override the metadata values.
+`--profile` and `--region` on any action override the metadata values.
+
+### Invoke
+
+`:AwsInvoke` runs `aws lambda invoke --function-name <name> response.json --cli-binary-format raw-in-base64-out`, opens `response.json`, and shows `StatusCode`, `FunctionError`, and `ExecutedVersion`. The interactive panel from `I` in the Lambda list is still there when you want to edit a JSON payload first.
+
+### Logs
+
+`:AwsLogs` tails the `log_group` from metadata; when it is missing, Lambda functions fall back to `/aws/lambda/<function-name>`.
+
+### Refresh
+
+`:AwsRefresh` reads the remote configuration (runtime, architecture, memory, timeout, handler, code SHA/size, last modified, environment variable names) and writes it back into `.aws-resource.json`.
+
+### Metadata
+
+`:AwsMetadata` prints the metadata file in a floating window — useful when an action picked the wrong profile or region.
+
+![Resource metadata](docs/screenshots/resource-metadata.png)
+
+![Invoke result](docs/screenshots/resource-invoke.png)
+
+![Refresh output](docs/screenshots/resource-refresh.png)
+
+![Live logs](docs/screenshots/resource-logs.png)
 
 ![Upload safety banner](docs/screenshots/lambda-upload-banner.png)
 
@@ -452,7 +488,9 @@ Lambda upload runs the full flow:
 
 ![Upload failure with the raw AWS CLI error](docs/screenshots/lambda-upload-failure.png)
 
-`stepfunctions/` and `glue/` layouts are recognised, but uploading them is not implemented yet; `:AwsUpload` reports that explicitly and does not call AWS.
+`stepfunctions/` and `glue/` layouts are recognised, but their actions are not implemented yet; the plugin reports that explicitly and does not call AWS.
+
+![KMS key explorer](docs/screenshots/kms-keys.png)
 
 ## Lambda development workflow
 

@@ -301,6 +301,15 @@ local function download_and_publish(function_name, call_opts, done)
               resolve_region_async(effective, function(region)
                 local account = identity.code == 0 and vim.trim(identity.stdout or "") or "unknown"
                 local meta = { function_name = function_name, region = region, account = account }
+                local resource_meta = {
+                  type = "lambda",
+                  account = account,
+                  region = region,
+                  profile = effective.profile,
+                  function_name = function_name,
+                  log_group = "/aws/lambda/" .. function_name,
+                }
+                vim.fn.writefile({ vim.json.encode(resource_meta) }, stage .. "/.aws-resource.json")
                 if vim.fn.writefile({ vim.json.encode(meta) }, metadata_path(stage)) ~= 0 then
                   vim.fn.delete(stage, "rf")
                   notify("could not write Lambda binding metadata", vim.log.levels.ERROR)
@@ -370,8 +379,8 @@ local function binding_for_function(function_name)
 end
 
 --- Download the Lambda source archive without opening any buffer.
-function M.download_source(function_name, call_opts)
-  download_and_publish(function_name, call_opts)
+function M.download_source(function_name, call_opts, done)
+  download_and_publish(function_name, call_opts, done)
 end
 
 --- Open the local source for a Lambda function, downloading it when missing.
@@ -529,7 +538,7 @@ function M.upload_and_invoke_function(function_name, call_opts)
   open_invoke_ui(function_name, call_opts or {}, "upload_invoke")
 end
 
-function M.tail_logs(call_opts, function_name)
+function M.tail_logs(call_opts, function_name, log_group)
   local name = function_name or vim.b.aws_lambda_function
   if name and not valid_function_name(name) then
     notify("invalid Lambda function name", vim.log.levels.ERROR)
@@ -554,7 +563,10 @@ function M.tail_logs(call_opts, function_name)
     or vim.env.AWS_DEFAULT_REGION
     or vim.env.AWS_REGION
     or "<configured>"
-  local key = table.concat({ profile, region, name }, "|")
+  local group = (type(log_group) == "string" and log_group ~= "") and log_group
+    or (type(vim.b.aws_lambda_log_group) == "string" and vim.b.aws_lambda_log_group ~= "" and vim.b.aws_lambda_log_group)
+    or ("/aws/lambda/" .. name)
+  local key = table.concat({ profile, region, name, group }, "|")
   if active_tails[key] then
     active_tails[key]:kill(15)
     active_tails[key] = nil
@@ -571,6 +583,7 @@ function M.tail_logs(call_opts, function_name)
     vim.api.nvim_buf_set_name(buf, bufname)
   end
   vim.b[buf].aws_lambda_function = name
+  vim.b[buf].aws_lambda_log_group = group
   vim.b[buf].aws_lambda_tail_key = key
   local win
   for _, candidate in ipairs(vim.api.nvim_list_wins()) do
@@ -592,16 +605,16 @@ function M.tail_logs(call_opts, function_name)
     0,
     -1,
     false,
-    { "Live Lambda logs: " .. name, "Press <S-L> or :AwsLambdaLogsStop to stop", "" }
+    { "Live Lambda logs: " .. group, "Press <S-L> or :AwsLambdaLogsStop to stop", "" }
   )
   vim.keymap.set("n", "<S-L>", function()
-    M.tail_logs(call_opts, name)
+    M.tail_logs(call_opts, name, group)
   end, { buffer = buf, silent = true, desc = "Reconnect or stop Lambda logs" })
-  local args = aws_args({ "logs", "tail", "/aws/lambda/" .. name, "--follow" }, opts)
+  local args = aws_args({ "logs", "tail", group, "--follow" }, opts)
   local proc = vim.system(args, {
     text = true,
     stdout = function(_, chunk)
-      if not chunk or not vim.api.nvim_buf_is_valid(buf) then
+      if not chunk then
         return
       end
       vim.schedule(function()

@@ -125,6 +125,19 @@ function M.apply_lambda_detail(buf, actions)
   map(buf, km.refresh, actions.refresh, "refresh detail")
 end
 
+--- Apply KMS keys-buffer keymaps.
+---@param buf     integer
+---@param actions table<string, function>
+function M.apply_kms(buf, actions)
+  local km = require("aws.config").values.keymaps.kms
+
+  map(buf, km.open_detail, actions.open_detail, "open KMS key detail")
+  map(buf, km.filter, actions.filter, "filter KMS keys")
+  map(buf, km.clear_filter, actions.clear_filter, "clear filter")
+  map(buf, km.refresh, actions.refresh, "refresh KMS keys")
+  map(buf, km.close, actions.close, "close KMS window")
+end
+
 --- Apply ACM certificates-buffer keymaps.
 ---@param buf     integer
 ---@param actions table<string, function>

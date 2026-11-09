@@ -420,34 +420,72 @@ Commands                                               *aws-nvim-lambda-cmd*
 
                                                                 *:AwsUpload*
 :AwsUpload [--region {r}] [--profile {p}]
-    Upload the AWS resource that owns the current buffer. The resource type,
-    name, profile and region are discovered automatically; see
-    |aws-nvim-upload|.
+    Upload the AWS resource that owns the current buffer.
 
-------------------------------------------------------------------------------
-Upload resource                                        *aws-nvim-upload*
+                                                                *:AwsDownload*
+:AwsDownload [--region {r}] [--profile {p}]
+    Download the resource sources into lambda/<name>/ and write
+    .aws-resource.json.
 
-    Resolution order:
+                                                                  *:AwsInvoke*
+:AwsInvoke [--region {r}] [--profile {p}]
+    Invoke the Lambda, write response.json beside the sources and show
+    StatusCode, FunctionError and ExecutedVersion.
+
+                                                                    *:AwsLogs*
+:AwsLogs [--region {r}] [--profile {p}]
+    Tail the metadata log_group (Lambda falls back to /aws/lambda/<name>).
+
+                                                                 *:AwsRefresh*
+:AwsRefresh [--region {r}] [--profile {p}]
+    Re-read the function configuration and sync it into .aws-resource.json.
+
+                                                                *:AwsMetadata*
+:AwsMetadata
+    Show the metadata file that owns the current buffer.
+
+-------------------------------------------------------------------------------
+Resource actions                                  *aws-nvim-resource*
+
+    Every action discovers the resource from the current buffer:
 
     1. `.aws-resource.json`, searched from the current file upwards:
-           {"type":"lambda","function_name":"dwh-dev",
-            "region":"ap-northeast-1","profile":"sbi-dwh-dev"}
+           {"type":"lambda","account":"123456789012",
+            "region":"ap-northeast-1","profile":"sbi-dwh-dev",
+            "function_name":"dwh-dev","log_group":"/aws/lambda/dwh-dev"}
     2. legacy `.aws-meta.json` written by the Lambda download;
     3. directory layout `lambda/<name>`, `stepfunctions/<name>`,
        `glue/<name>`;
     4. the AWS Explorer Lambda buffer under the cursor.
 
-    Lambda upload saves modified buffers with `:wall`, builds `function.zip`
-    inside the resource directory (excluding .git, __pycache__, .pytest_cache,
-    .venv, node_modules, *.pyc and the archive itself), prints the function,
-    profile and region, then runs:
+    When nothing identifies a resource the action stops with
+    "❌ AWS resource metadata not found".
+
+    Upload saves modified buffers with `:wall`, builds `function.zip`
+    inside the resource directory (excluding .git, .github, __pycache__,
+    .pytest_cache, .venv, node_modules, *.pyc, function.zip and
+    .aws-resource.json), prints function, profile, region and account, then
+    runs:
 
         aws lambda update-function-code --function-name {name} \
           --zip-file fileb://function.zip [--profile {p}] [--region {r}]
 
-    Success shows "Lambda Upload Success" with function, region and profile.
-    Failure shows the raw AWS CLI error. `stepfunctions` and `glue` layouts are
-    detected but their upload is not implemented yet.
+    Success shows "Upload Success" with function, region, account and
+    profile. Failure shows the raw AWS CLI error. Invoke, logs and refresh
+    read the same metadata. `stepfunctions` and `glue` layouts are detected
+    but their actions are not implemented yet.
+
+-------------------------------------------------------------------------------
+KMS                                                  *aws-nvim-kms* *:AwsKMS*
+:AwsKMS [--region {r}] [--profile {p}]
+    Open the KMS key list: aliases and keys without an alias.
+
+    Key   Action ~
+    <CR>  Describe the key under cursor.
+    F     Prompt to filter by alias or key id.
+    C     Clear the active filter.
+    <F5>  Re-fetch keys from AWS.
+    q     Close the split window.
 
 ------------------------------------------------------------------------------
 Functions buffer                                      *aws-nvim-lambda-keys*

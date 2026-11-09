@@ -4,10 +4,16 @@
 :AwsCFront	aws-nvim.txt	/*:AwsCFront*
 :AwsCW	aws-nvim.txt	/*:AwsCW*
 :AwsDDB	aws-nvim.txt	/*:AwsDDB*
+:AwsDownload	aws-nvim.txt	/*:AwsDownload*
 :AwsECS	aws-nvim.txt	/*:AwsECS*
 :AwsIAM	aws-nvim.txt	/*:AwsIAM*
+:AwsInvoke	aws-nvim.txt	/*:AwsInvoke*
+:AwsKMS	aws-nvim.txt	/*:AwsKMS*
 :AwsLambda	aws-nvim.txt	/*:AwsLambda*
+:AwsLogs	aws-nvim.txt	/*:AwsLogs*
+:AwsMetadata	aws-nvim.txt	/*:AwsMetadata*
 :AwsPicker	aws-nvim.txt	/*:AwsPicker*
+:AwsRefresh	aws-nvim.txt	/*:AwsRefresh*
 :AwsS3	aws-nvim.txt	/*:AwsS3*
 :AwsSM	aws-nvim.txt	/*:AwsSM*
 :AwsUpload	aws-nvim.txt	/*:AwsUpload*
@@ -68,6 +74,7 @@ aws-nvim-iam-menu-keys	aws-nvim.txt	/*aws-nvim-iam-menu-keys*
 aws-nvim-installation	aws-nvim.txt	/*aws-nvim-installation*
 aws-nvim-intro	aws-nvim.txt	/*aws-nvim-intro*
 aws-nvim-keymaps	aws-nvim.txt	/*aws-nvim-keymaps*
+aws-nvim-kms	aws-nvim.txt	/*aws-nvim-kms*
 aws-nvim-lambda	aws-nvim.txt	/*aws-nvim-lambda*
 aws-nvim-lambda-cmd	aws-nvim.txt	/*aws-nvim-lambda-cmd*
 aws-nvim-lambda-detail-keys	aws-nvim.txt	/*aws-nvim-lambda-detail-keys*
@@ -75,6 +82,7 @@ aws-nvim-lambda-invoke	aws-nvim.txt	/*aws-nvim-lambda-invoke*
 aws-nvim-lambda-keys	aws-nvim.txt	/*aws-nvim-lambda-keys*
 aws-nvim-picker	aws-nvim.txt	/*aws-nvim-picker*
 aws-nvim-requirements	aws-nvim.txt	/*aws-nvim-requirements*
+aws-nvim-resource	aws-nvim.txt	/*aws-nvim-resource*
 aws-nvim-s3	aws-nvim.txt	/*aws-nvim-s3*
 aws-nvim-s3-cmd	aws-nvim.txt	/*aws-nvim-s3-cmd*
 aws-nvim-s3-keys	aws-nvim.txt	/*aws-nvim-s3-keys*
@@ -83,7 +91,6 @@ aws-nvim-secretsmanager-cmd	aws-nvim.txt	/*aws-nvim-secretsmanager-cmd*
 aws-nvim-secretsmanager-detail-keys	aws-nvim.txt	/*aws-nvim-secretsmanager-detail-keys*
 aws-nvim-secretsmanager-keys	aws-nvim.txt	/*aws-nvim-secretsmanager-keys*
 aws-nvim-toc	aws-nvim.txt	/*aws-nvim-toc*
-aws-nvim-upload	aws-nvim.txt	/*aws-nvim-upload*
 aws-nvim-vpc	aws-nvim.txt	/*aws-nvim-vpc*
 aws-nvim-vpc-cmd	aws-nvim.txt	/*aws-nvim-vpc-cmd*
 aws-nvim-vpc-detail-keys	aws-nvim.txt	/*aws-nvim-vpc-detail-keys*

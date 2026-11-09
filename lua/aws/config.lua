@@ -125,6 +125,14 @@ local M = {}
 ---@field close          string|false  close the split window
 ---@field detail_refresh string|false  refresh the detail view
 
+---@class AwsKeymapsKMS
+--- Keymaps active inside the KMS keys buffer.
+---@field open_detail  string|false  open detail for the key under cursor
+---@field filter       string|false  prompt to filter keys by alias or id
+---@field clear_filter string|false  clear active filter
+---@field refresh      string|false  re-fetch keys from AWS
+---@field close        string|false  close the split window
+
 ---@class AwsKeymapsDynamoDB
 --- Keymaps active inside DynamoDB buffers (list, menu, detail, scan).
 --- Set any key to false to disable it.
@@ -153,6 +161,7 @@ local M = {}
 ---@field vpc            AwsKeymapsVPC
 ---@field dynamodb       AwsKeymapsDynamoDB
 ---@field ec2            AwsKeymapsEC2
+---@field kms            AwsKeymapsKMS
 
 ---@class AwsIcons
 ---@field stack       string
@@ -228,6 +237,13 @@ local defaults = {
       invoke = "I",
       upload_invoke = "R",
       live_logs = "<S-L>",
+    },
+    kms = {
+      open_detail = "<CR>",
+      filter = "F",
+      clear_filter = "C",
+      refresh = "<F5>",
+      close = "q",
     },
     acm = {
       open_detail = "<CR>",

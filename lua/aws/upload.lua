@@ -7,6 +7,8 @@ local M = {}
 local EXCLUDES = {
   ".git",
   ".git/*",
+  ".github",
+  ".github/*",
   "__pycache__",
   "__pycache__/*",
   ".pytest_cache",
@@ -17,13 +19,7 @@ local EXCLUDES = {
   "node_modules/*",
   "*.pyc",
   "function.zip",
-}
-
---- Directory names that identify a resource type.
-local LAYOUT = {
-  lambda = "lambda",
-  stepfunctions = "stepfunctions",
-  glue = "glue",
+  ".aws-resource.json",
 }
 
 M.last_result = nil
@@ -36,17 +32,6 @@ local function valid_name(name)
   return type(name) == "string" and name:match("^[%w_.-]+$") ~= nil
 end
 
-local function read_json(path)
-  if vim.fn.filereadable(path) ~= 1 then
-    return nil
-  end
-  local ok, data = pcall(vim.json.decode, table.concat(vim.fn.readfile(path), "\n"))
-  if not ok or type(data) ~= "table" then
-    return nil
-  end
-  return data
-end
-
 local function join(dir, name)
   if dir:sub(-1) == "/" then
     return dir .. name
@@ -54,122 +39,9 @@ local function join(dir, name)
   return dir .. "/" .. name
 end
 
-local function exists(path)
-  return vim.uv.fs_stat(path) ~= nil
-end
-
---- Pick the directory that holds the resource sources.
-local function resolve_dir(root, kind, name)
-  if name then
-    local nested = join(join(root, kind), name)
-    if exists(nested) then
-      return nested
-    end
-    local flat = join(root, name)
-    if exists(flat) then
-      return flat
-    end
-  end
-  return root
-end
-
---- Infer a resource from the AWS Explorer buffer under the cursor.
-local function discover_from_explorer()
-  local buf = vim.api.nvim_get_current_buf()
-  if vim.bo[buf].filetype ~= "aws-lambda" then
-    return nil
-  end
-  local line = vim.api.nvim_get_current_line() or ""
-  local name = line:match("^([%w_.-]+)%s")
-  if not name then
-    return nil
-  end
-  local region = vim.api.nvim_buf_get_name(buf):match("^aws://lambda/functions/(.+)$")
-  local cwd = vim.fn.getcwd()
-  local dir = join(join(cwd, "lambda"), name)
-  return {
-    type = "lambda",
-    name = name,
-    region = region,
-    dir = exists(dir) and dir or cwd,
-    source = "explorer",
-  }
-end
-
---- Detect the resource that owns the given path (defaults to the current buffer).
----@param path string|nil
----@return table|nil resource, string|nil error
+--- Discover the resource behind the current buffer (see aws.resource).
 function M.discover(path)
-  local start = path
-  if not start or start == "" then
-    start = vim.api.nvim_buf_get_name(0)
-  end
-  local dir = start ~= "" and vim.fs.dirname(start) or vim.fn.getcwd()
-  if dir == "" then
-    dir = "/"
-  end
-  if vim.fn.isdirectory(dir) == 0 then
-    dir = vim.fn.getcwd()
-  end
-
-  local child = dir
-  local cur = dir
-  while cur and cur ~= "" do
-    local resource_path = join(cur, ".aws-resource.json")
-    local data = read_json(resource_path)
-    if data then
-      local kind = type(data.type) == "string" and data.type:lower() or nil
-      if not kind or not LAYOUT[kind] then
-        return nil, "unsupported .aws-resource.json type: " .. tostring(data.type)
-      end
-      local name = data.function_name or data.name or data.job_name or data.state_machine_name
-      return {
-        type = kind,
-        name = name,
-        region = data.region,
-        profile = data.profile,
-        dir = resolve_dir(cur, LAYOUT[kind], name),
-        metadata = resource_path,
-        source = "resource",
-      }
-    end
-
-    local legacy = read_json(join(cur, ".aws-meta.json"))
-    if legacy and type(legacy.function_name) == "string" then
-      return {
-        type = "lambda",
-        name = legacy.function_name,
-        region = legacy.region,
-        dir = cur,
-        metadata = join(cur, ".aws-meta.json"),
-        source = "meta",
-      }
-    end
-
-    local base = vim.fs.basename(cur)
-    if LAYOUT[base] then
-      local name = vim.fs.basename(child)
-      return {
-        type = base,
-        name = name ~= "" and name ~= base and name or nil,
-        dir = child,
-        source = "layout",
-      }
-    end
-
-    local parent = vim.fs.dirname(cur)
-    if parent == cur then
-      break
-    end
-    child = cur
-    cur = parent
-  end
-
-  local explorer = discover_from_explorer()
-  if explorer then
-    return explorer
-  end
-  return nil, "no .aws-resource.json, .aws-meta.json or recognised resource directory found"
+  return require("aws.resource").discover(path)
 end
 
 --- Save every modified normal buffer so the archive contains what is on screen.
@@ -207,16 +79,18 @@ end
 local function open_banner(resource)
   close_banner()
   local lines = {
-    "Uploading Lambda:",
+    "Uploading Lambda…",
+    "",
+    "Function:",
     "  " .. tostring(resource.name),
     "Profile:",
     "  " .. tostring(resource.profile or "(default)"),
     "Region:",
     "  " .. tostring(resource.region or "(default)"),
-    "Archive:",
-    "  function.zip",
+    "Account:",
+    "  " .. tostring(resource.account or "(unknown)"),
   }
-  local width = 48
+  local width = 52
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   vim.bo[buf].bufhidden = "wipe"
@@ -244,11 +118,12 @@ end
 
 local function describe(resource)
   return string.format(
-    "Uploading %s:\n  %s\nProfile:\n  %s\nRegion:\n  %s",
+    "Uploading %s:\n  %s\nProfile:\n  %s\nRegion:\n  %s\nAccount:\n  %s",
     resource.type == "lambda" and "Lambda" or resource.type,
     tostring(resource.name),
     tostring(resource.profile or "(default)"),
-    tostring(resource.region or "(default)")
+    tostring(resource.region or "(default)"),
+    tostring(resource.account or "(unknown)")
   )
 end
 
@@ -264,6 +139,8 @@ local function finish(result, resource)
       "  " .. tostring(resource.name),
       "Region:",
       "  " .. tostring(resource.region or "(default)"),
+      "Account:",
+      "  " .. tostring(resource.account or "(unknown)"),
       "Profile:",
       "  " .. tostring(resource.profile or "(default)"),
       "Archive:",
@@ -352,7 +229,7 @@ function M.upload_lambda(resource, callback)
       end
       finish({
         ok = true,
-        title = "Lambda Upload Success",
+        title = "Upload Success",
         archive = archive,
         output = vim.trim(uploaded.stdout or ""),
         callback = callback,

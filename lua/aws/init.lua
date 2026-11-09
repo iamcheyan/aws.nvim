@@ -17,8 +17,14 @@ M.s3 = require("aws.s3")
 --- CloudWatch operations.
 M.cloudwatch = require("aws.cloudwatch")
 
+--- Unified resource actions (download/upload/invoke/logs/refresh/metadata).
+M.resource = require("aws.resource")
+
 --- Upload the AWS resource that backs the current buffer.
 M.upload = require("aws.upload")
+
+--- KMS operations.
+M.kms = require("aws.kms")
 
 --- Lambda operations.
 M.lambda = require("aws.lambda")

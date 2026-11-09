@@ -292,11 +292,17 @@ describe("Lambda workflow", function()
     vim.cmd.edit(vim.fn.fnameescape(dir .. "/app.py"))
     workflow.tail_logs({ profile = "prod" })
     local logbuf = vim.api.nvim_get_current_buf()
-    assert.equals("aws://lambda/logs/prod|ap-northeast-1|payments-api", vim.api.nvim_buf_get_name(logbuf))
+    assert.equals(
+      "aws://lambda/logs/prod|ap-northeast-1|payments-api|/aws/lambda/payments-api",
+      vim.api.nvim_buf_get_name(logbuf)
+    )
     workflow.stop_logs()
     vim.wait(100)
     workflow.tail_logs({ profile = "prod" })
-    assert.equals("aws://lambda/logs/prod|ap-northeast-1|payments-api", vim.api.nvim_buf_get_name(0))
+    assert.equals(
+      "aws://lambda/logs/prod|ap-northeast-1|payments-api|/aws/lambda/payments-api",
+      vim.api.nvim_buf_get_name(0)
+    )
     workflow.stop_logs()
   end)
 end)

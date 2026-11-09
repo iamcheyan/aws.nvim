@@ -195,7 +195,7 @@ describe("AWS resource upload", function()
     end))
 
     assert.is_true(result.ok)
-    assert.equals("Lambda Upload Success", result.title)
+    assert.equals("Upload Success", result.title)
     assert.same({ "print('after')" }, vim.fn.readfile(dir .. "/handler.py"))
 
     local zip_call = table.concat(vim.fn.readfile(fixture .. "/zip.log"), "\n")
