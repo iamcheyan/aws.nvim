@@ -295,6 +295,15 @@ function M.open(call_opts)
       require("aws.cloudwatch.streams").open(log_group, call_opts)
     end,
 
+    edit_source = function()
+      local name = fn_under_cursor(st)
+      if not name then
+        vim.notify("aws.nvim: no function under cursor", vim.log.levels.WARN)
+        return
+      end
+      require("aws.lambda.workflow").edit_source(name, call_opts)
+    end,
+
     download_source = function()
       local name = fn_under_cursor(st)
       if not name then

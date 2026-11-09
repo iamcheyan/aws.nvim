@@ -420,7 +420,7 @@ The Lambda list opened through `:AwsPicker` includes these actions:
 
 | Key | Action |
 |---|---|
-| `D` | Download selected function source into `.aws/lambda/<function-name>` in the Neovim working directory |
+| `D` | Download selected function source into `lambda/<function-name>` in the Neovim working directory |
 | `U` | Upload the local binding for the selected function |
 | `I` | Prompt for JSON and invoke the selected, locally bound function |
 | `R` | Upload the selected function, then invoke it |
@@ -442,6 +442,6 @@ require("aws").setup({
 })
 ```
 
-When enabled, only files under `.aws/lambda/<function-name>/` deploy after save. Ordinary project files are ignored. AWS operations, downloads, extraction, deployment, invoke, and live log tailing run asynchronously. The workflow uses the existing AWS CLI setup and requires `curl`, `unzip` (including `zipinfo`), and `zip` on `PATH`.
+When enabled, only files under `lambda/<function-name>/` deploy after save. Ordinary project files are ignored. AWS operations, downloads, extraction, deployment, invoke, and live log tailing run asynchronously. The workflow uses the existing AWS CLI setup and requires `curl`, `unzip` (including `zipinfo`), and `zip` on `PATH`.
 
 All CLI calls are asynchronous; AWS service operations use the existing async runner and the Lambda workflow uses `vim.system` so Neovim remains responsive.

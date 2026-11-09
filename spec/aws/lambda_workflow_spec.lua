@@ -24,6 +24,7 @@ local function make_fixture()
     [[#!/bin/sh
 printf '%s\n' "$*" >> "$AWS_FAKE_LOG"
 case "$*" in
+  *"lambda list-functions"*) printf '%s\n' '{"Functions":[{"FunctionName":"payments-api","Runtime":"python3.12","MemorySize":128,"CodeSize":42}]}' ;;
   *"lambda get-function"*) printf '%s\n' '{"Code":{"Location":"https://example.invalid/archive"}}' ;;
   *"sts get-caller-identity"*) printf '%s\n' '123456789012' ;;
   *"configure get region"*) printf '%s\n' 'ap-northeast-1' ;;
@@ -140,6 +141,55 @@ describe("Lambda workflow", function()
     local calls = table.concat(vim.fn.readfile(fixture .. "/aws.log"), "\n")
     assert.is_truthy(calls:find("--profile prod", 1, true))
     assert.is_truthy(calls:find("lambda get-function", 1, true))
+  end)
+
+  it("downloads from the real Lambda list D mapping into the current working directory", function()
+    require("aws.lambda.functions").open({ profile = "prod", region = "ap-northeast-1" })
+    local buf = vim.api.nvim_get_current_buf()
+    wait_for(function()
+      return vim.bo[buf].filetype == "aws-lambda"
+        and table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n"):find("payments%-api") ~= nil
+    end)
+
+    local row
+    for index, line in ipairs(vim.api.nvim_buf_get_lines(buf, 0, -1, false)) do
+      if line:find("payments-api", 1, true) then
+        row = index
+        break
+      end
+    end
+    assert.is_truthy(row)
+    assert.is_truthy(vim.tbl_contains(
+      vim.tbl_map(function(map)
+        return map.lhs
+      end, vim.api.nvim_buf_get_keymap(buf, "n")),
+      "D"
+    ))
+    vim.api.nvim_win_set_cursor(0, { row, 0 })
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("D", true, false, true), "x", false)
+
+    local source = fixture .. "/.aws/lambda/payments-api/app.py"
+    wait_for(function()
+      return vim.fn.filereadable(source) == 1
+    end)
+    assert.equals(source, vim.api.nvim_buf_get_name(0))
+    assert.same({ "print('hello')" }, vim.fn.readfile(source))
+  end)
+
+  it("opens an existing bound Lambda source for editing without replacing local changes", function()
+    local dir = fixture .. "/.aws/lambda/payments-api"
+    vim.fn.mkdir(dir, "p")
+    vim.fn.writefile(
+      { vim.json.encode({ function_name = "payments-api", region = "ap-northeast-1", account = "123456789012" }) },
+      dir .. "/.aws-meta.json"
+    )
+    vim.fn.writefile({ "local uncommitted edit" }, dir .. "/handler.py")
+
+    workflow.edit_source("payments-api", { profile = "prod" })
+
+    assert.equals(dir .. "/handler.py", vim.api.nvim_buf_get_name(0))
+    assert.same({ "local uncommitted edit" }, vim.fn.readfile(dir .. "/handler.py"))
+    assert.same({}, vim.fn.readfile(fixture .. "/aws.log"))
   end)
 
   it("rejects unsafe archives without replacing the existing source cache", function()

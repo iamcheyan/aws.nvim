@@ -41,6 +41,7 @@ local M = {}
 ---@field close        string|false  close the window
 ---@field detail_logs  string|false  open CW log streams from the detail buffer
 ---@field download_source string|false download source archive for function under cursor
+---@field edit_source     string|false open an existing bound source for editing
 ---@field upload string|false upload current bound Lambda source
 ---@field invoke string|false invoke current bound Lambda
 ---@field upload_invoke string|false upload then invoke current bound Lambda
@@ -221,6 +222,7 @@ local defaults = {
       refresh = "<F5>",
       close = "q",
       detail_logs = "L",
+      edit_source = "E",
       download_source = "D",
       upload = "U",
       invoke = "I",

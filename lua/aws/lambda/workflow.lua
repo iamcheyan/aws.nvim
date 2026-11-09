@@ -115,8 +115,7 @@ local function read_binding(path)
       local ok, data = pcall(vim.json.decode, raw)
       if ok and type(data) == "table" and valid_function_name(data.function_name) then
         local lambda_dir = vim.fs.dirname(dir)
-        local aws_dir = vim.fs.dirname(lambda_dir)
-        if vim.fs.basename(lambda_dir) == "lambda" and vim.fs.basename(aws_dir) == ".aws" then
+        if vim.fs.basename(lambda_dir) == "lambda" then
           return data, dir
         end
       end
@@ -340,6 +339,22 @@ local function binding_for_function(function_name)
     return
   end
   return meta, dir
+end
+
+function M.edit_source(function_name, call_opts)
+  local meta, dir = binding_for_function(function_name)
+  if not meta then
+    return
+  end
+  local candidates = { "app.py", "index.js", "handler.py", "main.py" }
+  for _, candidate in ipairs(candidates) do
+    local entry = dir .. "/" .. candidate
+    if vim.fn.filereadable(entry) == 1 then
+      vim.cmd.edit(vim.fn.fnameescape(entry))
+      return
+    end
+  end
+  vim.cmd.edit(vim.fn.fnameescape(dir))
 end
 
 function M.upload_current(call_opts, done)
