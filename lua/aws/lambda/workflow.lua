@@ -114,8 +114,7 @@ local function read_binding(path)
       local raw = table.concat(vim.fn.readfile(meta), "\n")
       local ok, data = pcall(vim.json.decode, raw)
       if ok and type(data) == "table" and valid_function_name(data.function_name) then
-        local lambda_dir = vim.fs.dirname(dir)
-        if vim.fs.basename(lambda_dir) == "lambda" then
+        if true then
           return data, dir
         end
       end
