@@ -1,0 +1,13 @@
+#!/bin/sh
+# Minimal mock AWS CLI for aws.nvim manual testing.
+# Put this directory first in PATH:
+#   export PATH="$(pwd)/docs/mock-data:$PATH"
+#   export AWS_FAKE_LOG=/tmp/aws.nvim.fake.log
+#   export AWS_FAKE_ZIP=/tmp/aws.nvim.fake.zip
+#   export AWS_FAKE_SOURCE=/tmp/aws.nvim.fake-source.py
+#   export AWS_FAKE_UNSAFE=0
+#   export AWS_FAKE_SYMLINK=0
+#   : > "$AWS_FAKE_LOG"
+#   printf 'fake zip archive' > "$AWS_FAKE_ZIP"
+#   printf "print('hello')\n" > "$AWS_FAKE_SOURCE"
+# Then start Neovim and run :AwsPicker.
