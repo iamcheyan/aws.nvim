@@ -76,15 +76,6 @@ local function hint_line()
   if km.download_source then
     table.insert(hints, km.download_source .. " download")
   end
-  if km.upload then
-    table.insert(hints, km.upload .. " upload")
-  end
-  if km.invoke then
-    table.insert(hints, km.invoke .. " invoke")
-  end
-  if km.upload_invoke then
-    table.insert(hints, km.upload_invoke .. " upload + invoke")
-  end
   if km.live_logs then
     table.insert(hints, km.live_logs .. " live logs")
   end
