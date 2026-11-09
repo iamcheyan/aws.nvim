@@ -417,6 +417,39 @@ Commands                                               *aws-nvim-lambda-cmd*
 
 
 ------------------------------------------------------------------------------
+
+                                                                *:AwsUpload*
+:AwsUpload [--region {r}] [--profile {p}]
+    Upload the AWS resource that owns the current buffer. The resource type,
+    name, profile and region are discovered automatically; see
+    |aws-nvim-upload|.
+
+------------------------------------------------------------------------------
+Upload resource                                        *aws-nvim-upload*
+
+    Resolution order:
+
+    1. `.aws-resource.json`, searched from the current file upwards:
+           {"type":"lambda","function_name":"dwh-dev",
+            "region":"ap-northeast-1","profile":"sbi-dwh-dev"}
+    2. legacy `.aws-meta.json` written by the Lambda download;
+    3. directory layout `lambda/<name>`, `stepfunctions/<name>`,
+       `glue/<name>`;
+    4. the AWS Explorer Lambda buffer under the cursor.
+
+    Lambda upload saves modified buffers with `:wall`, builds `function.zip`
+    inside the resource directory (excluding .git, __pycache__, .pytest_cache,
+    .venv, node_modules, *.pyc and the archive itself), prints the function,
+    profile and region, then runs:
+
+        aws lambda update-function-code --function-name {name} \
+          --zip-file fileb://function.zip [--profile {p}] [--region {r}]
+
+    Success shows "Lambda Upload Success" with function, region and profile.
+    Failure shows the raw AWS CLI error. `stepfunctions` and `glue` layouts are
+    detected but their upload is not implemented yet.
+
+------------------------------------------------------------------------------
 Functions buffer                                      *aws-nvim-lambda-keys*
     filetype: `aws-lambda`
 

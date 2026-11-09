@@ -10,6 +10,7 @@
 :AwsPicker	aws-nvim.txt	/*:AwsPicker*
 :AwsS3	aws-nvim.txt	/*:AwsS3*
 :AwsSM	aws-nvim.txt	/*:AwsSM*
+:AwsUpload	aws-nvim.txt	/*:AwsUpload*
 :AwsVPC	aws-nvim.txt	/*:AwsVPC*
 aws-acm	aws-nvim.txt	/*aws-acm*
 aws-agw	aws-nvim.txt	/*aws-agw*
@@ -82,6 +83,7 @@ aws-nvim-secretsmanager-cmd	aws-nvim.txt	/*aws-nvim-secretsmanager-cmd*
 aws-nvim-secretsmanager-detail-keys	aws-nvim.txt	/*aws-nvim-secretsmanager-detail-keys*
 aws-nvim-secretsmanager-keys	aws-nvim.txt	/*aws-nvim-secretsmanager-keys*
 aws-nvim-toc	aws-nvim.txt	/*aws-nvim-toc*
+aws-nvim-upload	aws-nvim.txt	/*aws-nvim-upload*
 aws-nvim-vpc	aws-nvim.txt	/*aws-nvim-vpc*
 aws-nvim-vpc-cmd	aws-nvim.txt	/*aws-nvim-vpc-cmd*
 aws-nvim-vpc-detail-keys	aws-nvim.txt	/*aws-nvim-vpc-detail-keys*

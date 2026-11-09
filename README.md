@@ -414,6 +414,46 @@ aws.nvim/
         └── detail.lua              # VPC detail viewer (6 parallel calls, vertical split)
 ```
 
+## Upload the current resource
+
+`:AwsUpload` (or `<leader>au`) syncs the AWS resource behind the current buffer back to AWS. You never type the function name, profile, region, or archive name: the plugin reads them from metadata.
+
+Resolution order:
+
+1. `.aws-resource.json`, searched from the current file's directory upwards;
+2. legacy `.aws-meta.json` bindings written by the Lambda download;
+3. directory layout: `.../lambda/<name>/`, `.../stepfunctions/<name>/`, `.../glue/<name>/`;
+4. the AWS Explorer buffer under the cursor (Lambda list).
+
+`.aws-resource.json` has the highest priority and looks like this:
+
+```json
+{
+  "type": "lambda",
+  "function_name": "dwh-dev",
+  "region": "ap-northeast-1",
+  "profile": "sbi-dwh-dev"
+}
+```
+
+Lambda upload runs the full flow:
+
+1. `:wall` when any buffer is modified, so the archive matches what you see;
+2. work inside the resource directory (for example `aws-dev/lambda/dwh-dev/`);
+3. build `function.zip`, excluding `.git`, `__pycache__`, `.pytest_cache`, `.venv`, `node_modules`, `*.pyc`, and the archive itself;
+4. print the safety banner with the function name, profile, and region, then run `aws lambda update-function-code --function-name <name> --zip-file fileb://function.zip`;
+5. show `✅ Lambda Upload Success` with function, region, and profile, or `❌ Upload Failed` followed by the **raw** AWS CLI error (`AccessDeniedException`, ...) without rewording.
+
+`--profile` and `--region` on `:AwsUpload` override the metadata values.
+
+![Upload safety banner](docs/screenshots/lambda-upload-banner.png)
+
+![Lambda upload success](docs/screenshots/lambda-upload-success.png)
+
+![Upload failure with the raw AWS CLI error](docs/screenshots/lambda-upload-failure.png)
+
+`stepfunctions/` and `glue/` layouts are recognised, but uploading them is not implemented yet; `:AwsUpload` reports that explicitly and does not call AWS.
+
 ## Lambda development workflow
 
 The Lambda list opened through `:AwsPicker` includes these actions:

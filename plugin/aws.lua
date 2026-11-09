@@ -901,6 +901,10 @@ local function lambda_workflow_command(name, desc, action)
   })
 end
 
+lambda_workflow_command("AwsUpload", "upload the AWS resource behind the current buffer", function(opts)
+  require("aws.upload").upload(opts)
+end)
+
 lambda_workflow_command("AwsLambdaUpload", "upload bound Lambda source", function(opts)
   workflow.upload_current(opts)
 end)

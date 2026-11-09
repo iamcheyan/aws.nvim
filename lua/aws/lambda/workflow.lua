@@ -60,6 +60,8 @@ local function display_buffer(title, lines, buffer_name)
     title = " " .. title .. " ",
     title_pos = "center",
   })
+  vim.wo[win].wrap = true
+  vim.wo[win].linebreak = true
   vim.keymap.set("n", "q", function()
     if vim.api.nvim_win_is_valid(win) then
       vim.api.nvim_win_close(win, true)

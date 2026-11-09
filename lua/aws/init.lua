@@ -17,6 +17,9 @@ M.s3 = require("aws.s3")
 --- CloudWatch operations.
 M.cloudwatch = require("aws.cloudwatch")
 
+--- Upload the AWS resource that backs the current buffer.
+M.upload = require("aws.upload")
+
 --- Lambda operations.
 M.lambda = require("aws.lambda")
 M.lambda.workflow = require("aws.lambda.workflow")
