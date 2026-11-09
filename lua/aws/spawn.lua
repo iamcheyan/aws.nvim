@@ -33,6 +33,16 @@ end
 ---@param cb        fun(ok: boolean, lines: string[])
 ---@param call_opts AwsCallOpts|nil  optional per-call profile/region overrides
 function M.run(args, cb, call_opts)
+  for _, arg in ipairs(args) do
+    if arg:match("^delete%-") or arg:match("^empty%-") or arg == "--delete" then
+      vim.schedule(function()
+        vim.notify("aws.nvim: remote delete operations are disabled", vim.log.levels.WARN)
+        cb(false, { "Remote delete operations are disabled" })
+      end)
+      return
+    end
+  end
+
   local stdout = vim.loop.new_pipe(false)
   local stderr = vim.loop.new_pipe(false)
 

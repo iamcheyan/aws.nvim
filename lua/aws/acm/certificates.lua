@@ -83,9 +83,6 @@ local function hint_line()
   if km.open_detail then
     table.insert(hints, km.open_detail .. " detail")
   end
-  if km.delete then
-    table.insert(hints, km.delete .. " delete")
-  end
   if km.filter then
     table.insert(hints, km.filter .. " filter")
   end
@@ -274,41 +271,8 @@ end
 
 ---@param st AcmCertState
 ---@param r1 integer
----@param r2 integer
----@return {arn:string,domain:string}[]
-local function entries_in_range(st, r1, r2)
-  local entries = {}
-  local seen = {}
-  for row = r1, r2 do
-    local e = st.line_map[row]
-    if e and not seen[e.arn] then
-      seen[e.arn] = true
-      table.insert(entries, e)
-    end
-  end
-  return entries
-end
-
 ---@param st      AcmCertState
 ---@param arns    table<string, boolean>
----@param buf     integer
-local function remove_from_state(st, arns, buf)
-  local function filter_list(list)
-    local out = {}
-    for _, c in ipairs(list) do
-      if not arns[c.CertificateArn] then
-        table.insert(out, c)
-      end
-    end
-    return out
-  end
-  st.certs = filter_list(st.certs)
-  if st.cache then
-    st.cache = filter_list(st.cache)
-  end
-  render(buf, st)
-end
-
 -------------------------------------------------------------------------------
 -- Public
 -------------------------------------------------------------------------------
@@ -333,46 +297,6 @@ function M.open(call_opts)
   end
   local st = _state[identity]
 
-  local function delete_one()
-    local e = entry_under_cursor(st)
-    if not e then
-      vim.notify("aws.nvim: no certificate under cursor", vim.log.levels.WARN)
-      return
-    end
-    require("aws.acm.delete").confirm(e.arn, e.domain, function()
-      remove_from_state(st, { [e.arn] = true }, buf)
-    end, call_opts)
-  end
-
-  local function delete_visual(r1, r2)
-    local entries = entries_in_range(st, r1, r2)
-    if #entries == 0 then
-      vim.notify("aws.nvim: no certificates in selection", vim.log.levels.WARN)
-      return
-    end
-    local label = #entries == 1 and ("Yes, delete " .. entries[1].domain)
-      or ("Yes, delete " .. #entries .. " certificates")
-    vim.ui.select({ label, "Cancel" }, { prompt = "Delete ACM certificates?" }, function(_, idx)
-      if not idx or idx ~= 1 then
-        return
-      end
-      local del = require("aws.acm.delete")
-      local removed = {}
-      local function next_delete(i)
-        if i > #entries then
-          remove_from_state(st, removed, buf)
-          return
-        end
-        local e = entries[i]
-        del.run(e.arn, function()
-          removed[e.arn] = true
-          next_delete(i + 1)
-        end, call_opts)
-      end
-      next_delete(1)
-    end)
-  end
-
   keymaps.apply_acm(buf, {
     open_detail = function()
       local e = entry_under_cursor(st)
@@ -382,9 +306,6 @@ function M.open(call_opts)
       end
       require("aws.acm.detail").open(e.arn, call_opts)
     end,
-
-    delete = delete_one,
-    delete_visual = delete_visual,
 
     filter = function()
       vim.ui.input({ prompt = "Filter certificates: ", default = st.filter }, function(input)

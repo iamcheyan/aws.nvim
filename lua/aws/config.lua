@@ -6,7 +6,6 @@ local M = {}
 --- Set any key to false to disable it.
 ---@field open_resources string|false  open resources for stack under cursor
 ---@field open_events    string|false  open events for stack under cursor
----@field delete         string|false  delete stack under cursor
 ---@field filter         string|false  prompt to filter stacks by name
 ---@field clear_filter   string|false  clear active filter
 ---@field refresh        string|false  re-fetch stacks from AWS
@@ -16,8 +15,6 @@ local M = {}
 --- Keymaps active inside the S3 buckets buffer.
 --- Set any key to false to disable it.
 ---@field open_bucket  string|false  open bucket under cursor in oil.nvim (oil-s3://)
----@field empty        string|false  empty bucket under cursor
----@field delete       string|false  empty + delete bucket under cursor
 ---@field filter       string|false  prompt to filter buckets by name
 ---@field clear_filter string|false  clear active filter
 ---@field refresh      string|false  re-fetch buckets from AWS
@@ -28,7 +25,6 @@ local M = {}
 --- Set any key to false to disable it.
 ---@field open_streams string|false  open log streams for group under cursor
 ---@field open_logs    string|false  open log events for stream under cursor
----@field delete       string|false  delete log group under cursor
 ---@field filter       string|false  prompt to filter by name
 ---@field clear_filter string|false  clear active filter
 ---@field refresh      string|false  re-fetch from AWS
@@ -39,7 +35,6 @@ local M = {}
 --- Set any key to false to disable it.
 ---@field open_detail  string|false  open detail view for function under cursor
 ---@field open_logs    string|false  open CloudWatch log streams for function under cursor
----@field delete       string|false  delete function under cursor
 ---@field filter       string|false  prompt to filter functions by name
 ---@field clear_filter string|false  clear active filter
 ---@field refresh      string|false  re-fetch from AWS
@@ -55,7 +50,6 @@ local M = {}
 --- Keymaps active inside ACM (Certificate Manager) buffers.
 --- Set any key to false to disable it.
 ---@field open_detail    string|false  open detail view for certificate under cursor
----@field delete         string|false  delete certificate under cursor
 ---@field filter         string|false  prompt to filter certificates by domain
 ---@field clear_filter   string|false  clear active filter
 ---@field refresh        string|false  re-fetch from AWS
@@ -65,7 +59,6 @@ local M = {}
 --- Keymaps active inside Secrets Manager buffers.
 --- Set any key to false to disable it.
 ---@field open_detail    string|false  open detail view for secret under cursor
----@field delete         string|false  delete secret under cursor
 ---@field filter         string|false  prompt to filter secrets by name
 ---@field clear_filter   string|false  clear active filter
 ---@field refresh        string|false  re-fetch from AWS
@@ -135,7 +128,6 @@ local M = {}
 --- Keymaps active inside DynamoDB buffers (list, menu, detail, scan).
 --- Set any key to false to disable it.
 ---@field open_menu      string|false  open per-table menu from the list buffer
----@field delete         string|false  delete table under cursor (list buffer)
 ---@field filter         string|false  prompt to filter tables by name
 ---@field clear_filter   string|false  clear active filter
 ---@field refresh        string|false  re-fetch from AWS (list buffer)
@@ -201,7 +193,6 @@ local defaults = {
     cloudformation = {
       open_resources = "<CR>",
       open_events = "E",
-      delete = "dd",
       filter = "F",
       clear_filter = "C",
       refresh = "R",
@@ -209,8 +200,6 @@ local defaults = {
     },
     s3 = {
       open_bucket = "<CR>",
-      empty = "de",
-      delete = "dd",
       filter = "F",
       clear_filter = "C",
       refresh = "R",
@@ -219,7 +208,6 @@ local defaults = {
     cloudwatch = {
       open_streams = "<CR>",
       open_logs = "<CR>",
-      delete = "dd",
       filter = "F",
       clear_filter = "C",
       refresh = "R",
@@ -228,7 +216,6 @@ local defaults = {
     lambda = {
       open_detail = "<CR>",
       open_logs = "l",
-      delete = "dd",
       filter = "F",
       clear_filter = "C",
       refresh = "<F5>",
@@ -242,7 +229,6 @@ local defaults = {
     },
     acm = {
       open_detail = "<CR>",
-      delete = "dd",
       filter = "F",
       clear_filter = "C",
       refresh = "R",
@@ -250,7 +236,6 @@ local defaults = {
     },
     secretsmanager = {
       open_detail = "<CR>",
-      delete = "dd",
       filter = "F",
       clear_filter = "C",
       refresh = "R",
@@ -298,7 +283,6 @@ local defaults = {
     },
     dynamodb = {
       open_menu = "<CR>",
-      delete = "dd",
       filter = "F",
       clear_filter = "C",
       refresh = "R",

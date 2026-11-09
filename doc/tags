@@ -53,6 +53,7 @@ aws-nvim-dynamodb-detail-keys	aws-nvim.txt	/*aws-nvim-dynamodb-detail-keys*
 aws-nvim-dynamodb-keys	aws-nvim.txt	/*aws-nvim-dynamodb-keys*
 aws-nvim-dynamodb-menu-keys	aws-nvim.txt	/*aws-nvim-dynamodb-menu-keys*
 aws-nvim-dynamodb-scan-keys	aws-nvim.txt	/*aws-nvim-dynamodb-scan-keys*
+aws-nvim-ec2	aws-nvim.txt	/*aws-nvim-ec2*
 aws-nvim-ecs	aws-nvim.txt	/*aws-nvim-ecs*
 aws-nvim-ecs-cmd	aws-nvim.txt	/*aws-nvim-ecs-cmd*
 aws-nvim-ecs-detail-keys	aws-nvim.txt	/*aws-nvim-ecs-detail-keys*

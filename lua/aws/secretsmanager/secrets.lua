@@ -89,9 +89,6 @@ local function hint_line()
   if km.open_detail then
     table.insert(hints, km.open_detail .. " detail")
   end
-  if km.delete then
-    table.insert(hints, km.delete .. " delete")
-  end
   if km.filter then
     table.insert(hints, km.filter .. " filter")
   end
@@ -270,41 +267,8 @@ end
 
 ---@param st SmSecretState
 ---@param r1 integer
----@param r2 integer
----@return string[]
-local function names_in_range(st, r1, r2)
-  local names = {}
-  local seen = {}
-  for row = r1, r2 do
-    local n = st.line_map[row]
-    if n and not seen[n] then
-      seen[n] = true
-      table.insert(names, n)
-    end
-  end
-  return names
-end
-
 ---@param st    SmSecretState
 ---@param names table<string,boolean>  set of names to remove
----@param buf   integer
-local function remove_from_state(st, names, buf)
-  local function filter_list(list)
-    local out = {}
-    for _, s in ipairs(list) do
-      if not names[s.Name] then
-        table.insert(out, s)
-      end
-    end
-    return out
-  end
-  st.secrets = filter_list(st.secrets)
-  if st.cache then
-    st.cache = filter_list(st.cache)
-  end
-  render(buf, st)
-end
-
 -------------------------------------------------------------------------------
 -- Public
 -------------------------------------------------------------------------------
@@ -329,50 +293,6 @@ function M.open(call_opts)
   end
   local st = _state[identity]
 
-  local function delete_one()
-    local name = name_under_cursor(st)
-    if not name then
-      vim.notify("aws.nvim: no secret under cursor", vim.log.levels.WARN)
-      return
-    end
-    require("aws.secretsmanager.delete").confirm(name, function()
-      remove_from_state(st, { [name] = true }, buf)
-    end, call_opts)
-  end
-
-  local function delete_visual(r1, r2)
-    local names = names_in_range(st, r1, r2)
-    if #names == 0 then
-      vim.notify("aws.nvim: no secrets in selection", vim.log.levels.WARN)
-      return
-    end
-    local label = #names == 1 and "Yes, delete immediately (no recovery window)"
-      or ("Yes, delete " .. #names .. " secrets immediately (no recovery window)")
-    vim.ui.select(
-      { label, "Cancel" },
-      { prompt = "Delete " .. (#names == 1 and ("secret '" .. names[1] .. "'") or (#names .. " secrets")) .. "?" },
-      function(_, idx)
-        if not idx or idx ~= 1 then
-          return
-        end
-        local del = require("aws.secretsmanager.delete")
-        local removed = {}
-        local function next_delete(i)
-          if i > #names then
-            remove_from_state(st, removed, buf)
-            return
-          end
-          local n = names[i]
-          del.run(n, function()
-            removed[n] = true
-            next_delete(i + 1)
-          end, call_opts)
-        end
-        next_delete(1)
-      end
-    )
-  end
-
   keymaps.apply_secretsmanager(buf, {
     open_detail = function()
       local name = name_under_cursor(st)
@@ -382,9 +302,6 @@ function M.open(call_opts)
       end
       require("aws.secretsmanager.detail").open(name, call_opts)
     end,
-
-    delete = delete_one,
-    delete_visual = delete_visual,
 
     filter = function()
       vim.ui.input({ prompt = "Filter secrets: ", default = st.filter }, function(input)

@@ -19,7 +19,7 @@ local services = {
   },
   {
     label = "S3",
-    desc = "Buckets — browse, empty, delete",
+    desc = "Buckets — browse",
     action = function(co)
       require("aws.s3").list_buckets(co)
     end,
@@ -33,21 +33,21 @@ local services = {
   },
   {
     label = "Lambda",
-    desc = "Functions — detail view, logs, delete",
+    desc = "Functions — detail view and logs",
     action = function(co)
       require("aws.lambda").list_functions(co)
     end,
   },
   {
     label = "ACM",
-    desc = "Certificates — detail view, delete",
+    desc = "Certificates — detail view",
     action = function(co)
       require("aws.acm").list_certificates(co)
     end,
   },
   {
     label = "Secrets Manager",
-    desc = "Secrets — detail view, reveal value, delete",
+    desc = "Secrets — detail view and reveal value",
     action = function(co)
       require("aws.secretsmanager").list_secrets(co)
     end,
@@ -89,7 +89,7 @@ local services = {
   },
   {
     label = "DynamoDB",
-    desc = "Tables — scan, query, detail view, delete",
+    desc = "Tables — scan, query and detail view",
     action = function(co)
       require("aws.dynamodb").list_tables(co)
     end,

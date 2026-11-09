@@ -24,12 +24,4 @@ function M.list_logs(group_name, stream_name, call_opts)
   require("aws.cloudwatch.logs").open(group_name, stream_name, call_opts)
 end
 
---- Prompt and delete a log group by name.
----@param group_name string
----@param on_success  fun()|nil
----@param call_opts   AwsCallOpts|nil
-function M.delete_group(group_name, on_success, call_opts)
-  require("aws.cloudwatch.delete").confirm(group_name, on_success, call_opts)
-end
-
 return M

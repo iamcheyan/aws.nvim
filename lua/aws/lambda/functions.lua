@@ -61,9 +61,6 @@ local function hint_line()
   if km.open_logs then
     table.insert(hints, km.open_logs .. " logs")
   end
-  if km.delete then
-    table.insert(hints, km.delete .. " delete")
-  end
   if km.filter then
     table.insert(hints, km.filter .. " filter")
   end
@@ -252,41 +249,8 @@ end
 
 ---@param st LambdaFnState
 ---@param r1 integer
----@param r2 integer
----@return string[]
-local function fns_in_range(st, r1, r2)
-  local names = {}
-  local seen = {}
-  for row = r1, r2 do
-    local name = st.line_map[row]
-    if name and not seen[name] then
-      seen[name] = true
-      table.insert(names, name)
-    end
-  end
-  return names
-end
-
 ---@param st    LambdaFnState
 ---@param names table<string, boolean>
----@param buf   integer
-local function remove_from_state(st, names, buf)
-  local function filter_list(list)
-    local out = {}
-    for _, f in ipairs(list) do
-      if not names[f.FunctionName] then
-        table.insert(out, f)
-      end
-    end
-    return out
-  end
-  st.functions = filter_list(st.functions)
-  if st.cache then
-    st.cache = filter_list(st.cache)
-  end
-  render(buf, st)
-end
-
 -------------------------------------------------------------------------------
 -- Public
 -------------------------------------------------------------------------------
@@ -310,45 +274,6 @@ function M.open(call_opts)
     }
   end
   local st = _state[identity]
-
-  local function delete_one()
-    local name = fn_under_cursor(st)
-    if not name then
-      vim.notify("aws.nvim: no function under cursor", vim.log.levels.WARN)
-      return
-    end
-    require("aws.lambda.delete").confirm(name, function()
-      remove_from_state(st, { [name] = true }, buf)
-    end, call_opts)
-  end
-
-  local function delete_visual(r1, r2)
-    local names = fns_in_range(st, r1, r2)
-    if #names == 0 then
-      vim.notify("aws.nvim: no functions in selection", vim.log.levels.WARN)
-      return
-    end
-    local label = #names == 1 and ("Yes, delete " .. names[1]) or ("Yes, delete " .. #names .. " functions")
-    vim.ui.select({ label, "Cancel" }, { prompt = "Delete Lambda functions?" }, function(_, idx)
-      if not idx or idx ~= 1 then
-        return
-      end
-      local del = require("aws.lambda.delete")
-      local removed = {}
-      local function next_delete(i)
-        if i > #names then
-          remove_from_state(st, removed, buf)
-          return
-        end
-        local name = names[i]
-        del.run(name, function()
-          removed[name] = true
-          next_delete(i + 1)
-        end, call_opts)
-      end
-      next_delete(1)
-    end)
-  end
 
   keymaps.apply_lambda(buf, {
     open_detail = function()
@@ -406,9 +331,6 @@ function M.open(call_opts)
         require("aws.lambda.workflow").tail_logs(call_opts, name)
       end
     end,
-
-    delete = delete_one,
-    delete_visual = delete_visual,
 
     filter = function()
       vim.ui.input({ prompt = "Filter functions: ", default = st.filter }, function(input)

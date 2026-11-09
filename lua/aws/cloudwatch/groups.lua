@@ -47,9 +47,6 @@ local function hint_line()
   if km.open_streams then
     table.insert(hints, km.open_streams .. " streams")
   end
-  if km.delete then
-    table.insert(hints, km.delete .. " delete")
-  end
   if km.filter then
     table.insert(hints, km.filter .. " filter")
   end
@@ -220,41 +217,8 @@ end
 
 ---@param st CwGroupsState
 ---@param r1 integer
----@param r2 integer
----@return string[]
-local function groups_in_range(st, r1, r2)
-  local names = {}
-  local seen = {}
-  for row = r1, r2 do
-    local name = st.line_map[row]
-    if name and not seen[name] then
-      seen[name] = true
-      table.insert(names, name)
-    end
-  end
-  return names
-end
-
 ---@param st    CwGroupsState
 ---@param names table<string, boolean>
----@param buf   integer
-local function remove_from_state(st, names, buf)
-  local function filter_list(list)
-    local out = {}
-    for _, g in ipairs(list) do
-      if not names[g.logGroupName] then
-        table.insert(out, g)
-      end
-    end
-    return out
-  end
-  st.groups = filter_list(st.groups)
-  if st.cache then
-    st.cache = filter_list(st.cache)
-  end
-  render(buf, st)
-end
-
 -------------------------------------------------------------------------------
 -- Public
 -------------------------------------------------------------------------------
@@ -280,45 +244,6 @@ function M.open(call_opts, fresh)
   end
   local st = _state[identity]
 
-  local function delete_one()
-    local name = group_under_cursor(st)
-    if not name then
-      vim.notify("aws.nvim: no log group under cursor", vim.log.levels.WARN)
-      return
-    end
-    require("aws.cloudwatch.delete").confirm(name, function()
-      remove_from_state(st, { [name] = true }, buf)
-    end, call_opts)
-  end
-
-  local function delete_visual(r1, r2)
-    local names = groups_in_range(st, r1, r2)
-    if #names == 0 then
-      vim.notify("aws.nvim: no log groups in selection", vim.log.levels.WARN)
-      return
-    end
-    local label = #names == 1 and ("Yes, delete " .. names[1]) or ("Yes, delete " .. #names .. " log groups")
-    vim.ui.select({ label, "Cancel" }, { prompt = "Delete CloudWatch log groups?" }, function(_, idx)
-      if not idx or idx ~= 1 then
-        return
-      end
-      local del = require("aws.cloudwatch.delete")
-      local removed = {}
-      local function next_delete(i)
-        if i > #names then
-          remove_from_state(st, removed, buf)
-          return
-        end
-        local name = names[i]
-        del.run(name, function()
-          removed[name] = true
-          next_delete(i + 1)
-        end, call_opts)
-      end
-      next_delete(1)
-    end)
-  end
-
   keymaps.apply_cloudwatch(buf, {
     open_streams = function()
       local name = group_under_cursor(st)
@@ -328,9 +253,6 @@ function M.open(call_opts, fresh)
       end
       require("aws.cloudwatch.streams").open(name, call_opts)
     end,
-
-    delete = delete_one,
-    delete_visual = delete_visual,
 
     filter = function()
       vim.ui.input({ prompt = "Filter log groups: ", default = st.filter }, function(input)

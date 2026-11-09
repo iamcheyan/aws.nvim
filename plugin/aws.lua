@@ -52,6 +52,10 @@ end
 vim.api.nvim_create_user_command("AwsCF", function(opts)
   local args, call_opts = parse_flags(opts.fargs)
   local sub  = args[1] or "list"
+  if sub == "delete" or sub == "del" or sub == "empty" then
+    vim.notify("aws.nvim: remote delete operations are disabled", vim.log.levels.WARN)
+    return
+  end
   local name = args[2]
 
   if sub == "list" or sub == "ls" then
@@ -64,17 +68,10 @@ vim.api.nvim_create_user_command("AwsCF", function(opts)
     end
     aws.cloudformation.stack_events(name, call_opts)
 
-  elseif sub == "delete" or sub == "del" then
-    if not name or name == "" then
-      vim.notify("Usage: :AwsCF delete <stack-name>", vim.log.levels.WARN)
-      return
-    end
-    aws.cloudformation.delete_stack(name, nil, call_opts)
-
   else
     vim.notify(
       "aws.nvim: unknown sub-command '" .. sub .. "'\n"
-        .. "Available: list, events <name>, delete <name>",
+        .. "Available: list, events <name>",
       vim.log.levels.WARN
     )
   end
@@ -99,7 +96,7 @@ end, {
     end
     if positional_count <= 1 or (positional_count == 2 and not cmdline:match("%s$")) then
       local out = {}
-      for _, s in ipairs({ "list", "events", "delete" }) do
+      for _, s in ipairs({ "list", "events" }) do
         if s:find(arglead, 1, true) == 1 then table.insert(out, s) end
       end
       return out
@@ -115,29 +112,18 @@ end, {
 vim.api.nvim_create_user_command("AwsS3", function(opts)
   local args, call_opts = parse_flags(opts.fargs)
   local sub  = args[1] or "list"
-  local name = args[2]
+  if sub == "delete" or sub == "del" or sub == "empty" then
+    vim.notify("aws.nvim: remote delete operations are disabled", vim.log.levels.WARN)
+    return
+  end
 
   if sub == "list" or sub == "ls" then
     aws.s3.list_buckets(call_opts)
 
-  elseif sub == "empty" then
-    if not name or name == "" then
-      vim.notify("Usage: :AwsS3 empty <bucket-name>", vim.log.levels.WARN)
-      return
-    end
-    aws.s3.empty_bucket(name, nil, call_opts)
-
-  elseif sub == "delete" or sub == "del" then
-    if not name or name == "" then
-      vim.notify("Usage: :AwsS3 delete <bucket-name>", vim.log.levels.WARN)
-      return
-    end
-    aws.s3.delete_bucket(name, nil, call_opts)
-
   else
     vim.notify(
       "aws.nvim: unknown sub-command '" .. sub .. "'\n"
-        .. "Available: list, empty <name>, delete <name>",
+        .. "Available: list",
       vim.log.levels.WARN
     )
   end
@@ -160,7 +146,7 @@ end, {
     end
     if positional_count <= 1 or (positional_count == 2 and not cmdline:match("%s$")) then
       local out = {}
-      for _, s in ipairs({ "list", "empty", "delete" }) do
+      for _, s in ipairs({ "list" }) do
         if s:find(arglead, 1, true) == 1 then table.insert(out, s) end
       end
       return out
@@ -176,6 +162,10 @@ end, {
 vim.api.nvim_create_user_command("AwsCW", function(opts)
   local args, call_opts, fresh = parse_flags(opts.fargs)
   local sub    = args[1] or "list"
+  if sub == "delete" or sub == "del" or sub == "empty" then
+    vim.notify("aws.nvim: remote delete operations are disabled", vim.log.levels.WARN)
+    return
+  end
   local name   = args[2]
   local stream = args[3]
 
@@ -196,17 +186,10 @@ vim.api.nvim_create_user_command("AwsCW", function(opts)
     end
     aws.cloudwatch.list_logs(name, stream, call_opts)
 
-  elseif sub == "delete" or sub == "del" then
-    if not name or name == "" then
-      vim.notify("Usage: :AwsCW delete <log-group-name>", vim.log.levels.WARN)
-      return
-    end
-    aws.cloudwatch.delete_group(name, nil, call_opts)
-
   else
     vim.notify(
       "aws.nvim: unknown sub-command '" .. sub .. "'\n"
-        .. "Available: list, streams <group>, logs <group> <stream>, delete <group>",
+        .. "Available: list, streams <group>, logs <group> <stream>",
       vim.log.levels.WARN
     )
   end
@@ -229,7 +212,7 @@ end, {
     end
     if positional_count <= 1 or (positional_count == 2 and not cmdline:match("%s$")) then
       local out = {}
-      for _, s in ipairs({ "list", "streams", "logs", "delete" }) do
+      for _, s in ipairs({ "list", "streams", "logs" }) do
         if s:find(arglead, 1, true) == 1 then table.insert(out, s) end
       end
       return out
@@ -245,6 +228,10 @@ end, {
 vim.api.nvim_create_user_command("AwsLambda", function(opts)
   local args, call_opts = parse_flags(opts.fargs)
   local sub  = args[1] or "list"
+  if sub == "delete" or sub == "del" or sub == "empty" then
+    vim.notify("aws.nvim: remote delete operations are disabled", vim.log.levels.WARN)
+    return
+  end
   local name = args[2]
 
   if sub == "list" or sub == "ls" then
@@ -257,17 +244,10 @@ vim.api.nvim_create_user_command("AwsLambda", function(opts)
     end
     aws.lambda.open_detail(name, call_opts)
 
-  elseif sub == "delete" or sub == "del" then
-    if not name or name == "" then
-      vim.notify("Usage: :AwsLambda delete <function-name>", vim.log.levels.WARN)
-      return
-    end
-    aws.lambda.delete_function(name, nil, call_opts)
-
   else
     vim.notify(
       "aws.nvim: unknown sub-command '" .. sub .. "'\n"
-        .. "Available: list, detail <name>, delete <name>",
+        .. "Available: list, detail <name>",
       vim.log.levels.WARN
     )
   end
@@ -290,7 +270,7 @@ end, {
     end
     if positional_count <= 1 or (positional_count == 2 and not cmdline:match("%s$")) then
       local out = {}
-      for _, s in ipairs({ "list", "detail", "delete" }) do
+      for _, s in ipairs({ "list", "detail" }) do
         if s:find(arglead, 1, true) == 1 then table.insert(out, s) end
       end
       return out
@@ -306,6 +286,10 @@ end, {
 vim.api.nvim_create_user_command("AwsACM", function(opts)
   local args, call_opts = parse_flags(opts.fargs)
   local sub = args[1] or "list"
+  if sub == "delete" or sub == "del" or sub == "empty" then
+    vim.notify("aws.nvim: remote delete operations are disabled", vim.log.levels.WARN)
+    return
+  end
   local arn = args[2]
 
   if sub == "list" or sub == "ls" then
@@ -318,18 +302,10 @@ vim.api.nvim_create_user_command("AwsACM", function(opts)
     end
     aws.acm.open_detail(arn, call_opts)
 
-  elseif sub == "delete" or sub == "del" then
-    if not arn or arn == "" then
-      vim.notify("Usage: :AwsACM delete <certificate-arn>", vim.log.levels.WARN)
-      return
-    end
-    -- Extract domain from arn for display (last segment is the cert ID, not the domain)
-    aws.acm.delete_certificate(arn, arn, nil, call_opts)
-
   else
     vim.notify(
       "aws.nvim: unknown sub-command '" .. sub .. "'\n"
-        .. "Available: list, detail <arn>, delete <arn>",
+        .. "Available: list, detail <arn>",
       vim.log.levels.WARN
     )
   end
@@ -352,7 +328,7 @@ end, {
     end
     if positional_count <= 1 or (positional_count == 2 and not cmdline:match("%s$")) then
       local out = {}
-      for _, s in ipairs({ "list", "detail", "delete" }) do
+      for _, s in ipairs({ "list", "detail" }) do
         if s:find(arglead, 1, true) == 1 then table.insert(out, s) end
       end
       return out
@@ -368,6 +344,10 @@ end, {
 vim.api.nvim_create_user_command("AwsSM", function(opts)
   local args, call_opts = parse_flags(opts.fargs)
   local sub  = args[1] or "list"
+  if sub == "delete" or sub == "del" or sub == "empty" then
+    vim.notify("aws.nvim: remote delete operations are disabled", vim.log.levels.WARN)
+    return
+  end
   local name = args[2]
 
   if sub == "list" or sub == "ls" then
@@ -380,17 +360,10 @@ vim.api.nvim_create_user_command("AwsSM", function(opts)
     end
     aws.secretsmanager.open_detail(name, call_opts)
 
-  elseif sub == "delete" or sub == "del" then
-    if not name or name == "" then
-      vim.notify("Usage: :AwsSM delete <secret-name>", vim.log.levels.WARN)
-      return
-    end
-    aws.secretsmanager.delete_secret(name, nil, call_opts)
-
   else
     vim.notify(
       "aws.nvim: unknown sub-command '" .. sub .. "'\n"
-        .. "Available: list, detail <name>, delete <name>",
+        .. "Available: list, detail <name>",
       vim.log.levels.WARN
     )
   end
@@ -413,7 +386,7 @@ end, {
     end
     if positional_count <= 1 or (positional_count == 2 and not cmdline:match("%s$")) then
       local out = {}
-      for _, s in ipairs({ "list", "detail", "delete" }) do
+      for _, s in ipairs({ "list", "detail" }) do
         if s:find(arglead, 1, true) == 1 then table.insert(out, s) end
       end
       return out
@@ -429,6 +402,10 @@ end, {
 vim.api.nvim_create_user_command("AwsAGW", function(opts)
   local args, call_opts = parse_flags(opts.fargs)
   local sub = args[1] or "list"
+  if sub == "delete" or sub == "del" or sub == "empty" then
+    vim.notify("aws.nvim: remote delete operations are disabled", vim.log.levels.WARN)
+    return
+  end
   local id  = args[2]
 
   if sub == "list" or sub == "ls" then
@@ -483,6 +460,10 @@ end, {
 vim.api.nvim_create_user_command("AwsCFront", function(opts)
   local args, call_opts = parse_flags(opts.fargs)
   local sub = args[1] or "list"
+  if sub == "delete" or sub == "del" or sub == "empty" then
+    vim.notify("aws.nvim: remote delete operations are disabled", vim.log.levels.WARN)
+    return
+  end
   local id  = args[2]
 
   if sub == "list" or sub == "ls" then
@@ -544,6 +525,10 @@ end, {
 vim.api.nvim_create_user_command("AwsECS", function(opts)
   local args, call_opts = parse_flags(opts.fargs)
   local sub = args[1] or "list"
+  if sub == "delete" or sub == "del" or sub == "empty" then
+    vim.notify("aws.nvim: remote delete operations are disabled", vim.log.levels.WARN)
+    return
+  end
   local arn = args[2]
 
   if sub == "list" or sub == "ls" then
@@ -604,6 +589,10 @@ end, {
 vim.api.nvim_create_user_command("AwsIAM", function(opts)
   local args, call_opts = parse_flags(opts.fargs)
   local sub  = args[1] or "list"
+  if sub == "delete" or sub == "del" or sub == "empty" then
+    vim.notify("aws.nvim: remote delete operations are disabled", vim.log.levels.WARN)
+    return
+  end
 
   if sub == "list" or sub == "ls" then
     aws.iam.open_menu(call_opts)
@@ -726,6 +715,10 @@ end, {
 vim.api.nvim_create_user_command("AwsVPC", function(opts)
   local args, call_opts = parse_flags(opts.fargs)
   local sub = args[1] or "list"
+  if sub == "delete" or sub == "del" or sub == "empty" then
+    vim.notify("aws.nvim: remote delete operations are disabled", vim.log.levels.WARN)
+    return
+  end
   local id  = args[2]
 
   if sub == "list" or sub == "ls" then
@@ -775,12 +768,16 @@ end, {
 
 -------------------------------------------------------------------------------
 -- :AwsDDB [--region <r>] [--profile <p>] [subcommand [table-name]]
--- subcommands: list/ls, menu <name>, detail <name>, scan <name>, delete <name>
+-- subcommands: list/ls, menu <name>, detail <name>, scan <name>
 -------------------------------------------------------------------------------
 
 vim.api.nvim_create_user_command("AwsDDB", function(opts)
   local args, call_opts = parse_flags(opts.fargs)
   local sub  = args[1] or "list"
+  if sub == "delete" or sub == "del" or sub == "empty" then
+    vim.notify("aws.nvim: remote delete operations are disabled", vim.log.levels.WARN)
+    return
+  end
   local name = args[2]
 
   if sub == "list" or sub == "ls" then
@@ -807,17 +804,10 @@ vim.api.nvim_create_user_command("AwsDDB", function(opts)
     end
     aws.dynamodb.open_scan(name, call_opts)
 
-  elseif sub == "delete" or sub == "del" then
-    if not name or name == "" then
-      vim.notify("Usage: :AwsDDB delete <table-name>", vim.log.levels.WARN)
-      return
-    end
-    aws.dynamodb.delete_table(name, nil, call_opts)
-
   else
     vim.notify(
       "aws.nvim: unknown sub-command '" .. sub .. "'\n"
-        .. "Available: list, menu <name>, detail <name>, scan <name>, delete <name>",
+        .. "Available: list, menu <name>, detail <name>, scan <name>",
       vim.log.levels.WARN
     )
   end
@@ -839,12 +829,32 @@ end, {
     end
     if positional_count <= 1 or (positional_count == 2 and not cmdline:match("%s$")) then
       local out = {}
-      for _, s in ipairs({ "list", "menu", "detail", "scan", "delete" }) do
+      for _, s in ipairs({ "list", "menu", "detail", "scan" }) do
         if s:find(arglead, 1, true) == 1 then table.insert(out, s) end
       end
       return out
     end
     return {}
+  end,
+})
+
+-------------------------------------------------------------------------------
+-- :AwsEC2 [--region <r>] [--profile <p>]
+-------------------------------------------------------------------------------
+
+vim.api.nvim_create_user_command("AwsEC2", function(opts)
+  local _, call_opts = parse_flags(opts.fargs)
+  aws.ec2.list_instances(call_opts)
+end, {
+  nargs = "*",
+  desc = "aws.nvim: list EC2 instances",
+  complete = function(arglead)
+    if arglead:sub(1, 1) ~= "-" then return {} end
+    local out = {}
+    for _, flag in ipairs({ "--region", "--profile" }) do
+      if flag:find(arglead, 1, true) == 1 then table.insert(out, flag) end
+    end
+    return out
   end,
 })
 

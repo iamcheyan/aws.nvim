@@ -22,7 +22,8 @@ CONTENTS                                                        *aws-nvim-toc*
  16. IAM ...................... |aws-nvim-iam|
  17. VPC ...................... |aws-nvim-vpc|
  18. DynamoDB ................. |aws-nvim-dynamodb|
- 19. Architecture .............. |aws-nvim-architecture|
+ 19. EC2 ...................... |aws-nvim-ec2|
+ 20. Architecture .............. |aws-nvim-architecture|
 
 ==============================================================================
 1. INTRODUCTION                                               *aws-nvim-intro*
@@ -32,7 +33,8 @@ placed into regular Neovim buffers inside splits, so all built-in motions,
 search, and keymaps work out of the box.
 
 All CLI calls are asynchronous (|vim.loop| / libuv); the editor never blocks
-while waiting for AWS responses.
+while waiting for AWS responses. Remote resource deletion and S3 bucket emptying
+are disabled in aws.nvim.
 
 Supported services:
   - AWS CloudFormation
@@ -47,6 +49,7 @@ Supported services:
   - AWS IAM
   - AWS VPC
   - AWS DynamoDB
+  - AWS EC2
 
 ==============================================================================
 2. REQUIREMENTS                                        *aws-nvim-requirements*
@@ -115,15 +118,12 @@ All options are optional. Call `setup()` with any overrides: >lua
         cloudformation = {
           open_resources = "<CR>",  -- open resources for stack under cursor
           open_events    = "E",     -- open events for stack under cursor
-          delete         = "dd",    -- delete stack under cursor
           filter         = "F",     -- prompt to filter stacks by name
           clear_filter   = "C",     -- clear active filter
           refresh        = "R",     -- re-fetch stacks from AWS
         },
         s3 = {
           open_bucket  = "<CR>",  -- open bucket under cursor in oil.nvim
-          empty        = "de",    -- empty bucket under cursor
-          delete       = "dd",    -- delete bucket under cursor (must be empty)
           filter       = "F",     -- prompt to filter buckets by name
           clear_filter = "C",     -- clear active filter
           refresh      = "R",     -- re-fetch buckets from AWS
@@ -131,7 +131,6 @@ All options are optional. Call `setup()` with any overrides: >lua
         cloudwatch = {
           open_streams = "<CR>",  -- open log streams for group under cursor
           open_logs    = "<CR>",  -- open log events for stream under cursor
-          delete       = "dd",    -- delete log group under cursor
           filter       = "F",     -- prompt to filter log groups by name
           clear_filter = "C",     -- clear active filter
           refresh      = "R",     -- re-fetch from AWS
@@ -139,7 +138,6 @@ All options are optional. Call `setup()` with any overrides: >lua
         lambda = {
           open_detail  = "<CR>",  -- open detail view for function under cursor
           open_logs    = "L",     -- open CloudWatch log streams for function
-          delete       = "dd",    -- delete function under cursor
           filter       = "F",     -- prompt to filter functions by name
           clear_filter = "C",     -- clear active filter
           refresh      = "R",     -- re-fetch from AWS
@@ -147,7 +145,6 @@ All options are optional. Call `setup()` with any overrides: >lua
         },
         acm = {
           open_detail    = "<CR>",  -- open detail view for certificate under cursor
-          delete         = "dd",    -- delete certificate under cursor
           filter         = "F",     -- prompt to filter certificates by domain
           clear_filter   = "C",     -- clear active filter
           refresh        = "R",     -- re-fetch from AWS
@@ -155,7 +152,6 @@ All options are optional. Call `setup()` with any overrides: >lua
         },
         secretsmanager = {
           open_detail    = "<CR>",  -- open detail view for secret under cursor
-          delete         = "dd",    -- delete secret under cursor
           filter         = "F",     -- prompt to filter secrets by name
           clear_filter   = "C",     -- clear active filter
           refresh        = "R",     -- re-fetch from AWS
@@ -203,7 +199,6 @@ All options are optional. Call `setup()` with any overrides: >lua
         },
         dynamodb = {
           open_menu      = "<CR>",  -- open per-table menu from the list buffer
-          delete         = "dd",    -- delete table under cursor
           filter         = "F",     -- prompt to filter tables by name
           clear_filter   = "C",     -- clear active filter
           refresh        = "R",     -- re-fetch from AWS (list buffer)
@@ -287,8 +282,6 @@ Commands                                        *aws-nvim-cloudformation-cmd*
 :AwsCF events {name} [--region {r}] [--profile {p}]
     Open the events buffer for the named stack.
 
-:AwsCF delete {name} [--region {r}] [--profile {p}]
-    Delete the named stack (asks for confirmation).
 
 ------------------------------------------------------------------------------
 Stacks buffer                                  *aws-nvim-cloudformation-keys*
@@ -297,8 +290,6 @@ Stacks buffer                                  *aws-nvim-cloudformation-keys*
     Key   Action ~
     <CR>  Open the resources tree for the stack under cursor.
     E     Open the events buffer for the stack under cursor.
-    dd    Delete the stack under cursor (asks for confirmation).
-    dd    (visual) Delete all stacks in the visual selection.
     F     Prompt to filter the list by stack name.
     C     Clear the active filter.
     R     Re-fetch stacks from AWS.
@@ -334,11 +325,7 @@ Commands                                                   *aws-nvim-s3-cmd*
     Open the S3 buckets list buffer. `list` is the default sub-command and
     may be omitted.
 
-:AwsS3 empty {name} [--region {r}] [--profile {p}]
-    Delete all objects in the named bucket (asks for confirmation).
 
-:AwsS3 delete {name} [--region {r}] [--profile {p}]
-    Delete the named bucket (asks for confirmation; bucket must be empty).
 
 ------------------------------------------------------------------------------
 Buckets buffer                                             *aws-nvim-s3-keys*
@@ -346,9 +333,6 @@ Buckets buffer                                             *aws-nvim-s3-keys*
 
     Key   Action ~
     <CR>  Open the bucket under cursor in oil.nvim (oil-s3://).
-    de    Empty the bucket under cursor (asks for confirmation).
-    dd    Delete the bucket under cursor (asks for confirmation; must be empty).
-    dd    (visual) Delete all buckets in the visual selection.
     F     Prompt to filter the list by bucket name.
     C     Clear the active filter.
     R     Re-fetch buckets from AWS.
@@ -378,8 +362,6 @@ Commands                                              *aws-nvim-cloudwatch-cmd*
 :AwsCW logs {group} {stream} [--region {r}] [--profile {p}]
     Open the log events buffer for the named stream.
 
-:AwsCW delete {group} [--region {r}] [--profile {p}]
-    Delete the named log group (asks for confirmation).
 
 ------------------------------------------------------------------------------
 Log groups buffer                            *aws-nvim-cloudwatch-groups-keys*
@@ -387,8 +369,6 @@ Log groups buffer                            *aws-nvim-cloudwatch-groups-keys*
 
     Key   Action ~
     <CR>  Open the log streams buffer for the group under cursor.
-    dd    Delete the log group under cursor (asks for confirmation).
-    dd    (visual) Delete all log groups in the visual selection.
     F     Prompt to filter the list by group name.
     C     Clear the active filter.
     R     Re-fetch log groups from AWS.
@@ -435,8 +415,6 @@ Commands                                               *aws-nvim-lambda-cmd*
 :AwsLambda detail {name} [--region {r}] [--profile {p}]
     Open the detail view for the named function.
 
-:AwsLambda delete {name} [--region {r}] [--profile {p}]
-    Delete the named function (asks for confirmation).
 
 ------------------------------------------------------------------------------
 Functions buffer                                      *aws-nvim-lambda-keys*
@@ -445,8 +423,6 @@ Functions buffer                                      *aws-nvim-lambda-keys*
     Key   Action ~
     <CR>  Open the detail view for the function under cursor.
     L     Open CloudWatch log streams for the function under cursor.
-    dd    Delete the function under cursor (asks for confirmation).
-    dd    (visual) Delete all functions in the visual selection.
     F     Prompt to filter the list by function name.
     C     Clear the active filter.
     R     Re-fetch functions from AWS.
@@ -481,8 +457,6 @@ Commands                                                  *aws-nvim-acm-cmd*
 :AwsACM detail {arn} [--region {r}] [--profile {p}]
     Open the detail view for the certificate identified by ARN.
 
-:AwsACM delete {arn} [--region {r}] [--profile {p}]
-    Delete the certificate identified by ARN (asks for confirmation).
 
 ------------------------------------------------------------------------------
 Certificates buffer                                        *aws-nvim-acm-keys*
@@ -490,8 +464,6 @@ Certificates buffer                                        *aws-nvim-acm-keys*
 
     Key   Action ~
     <CR>  Open the detail view for the certificate under cursor.
-    dd    Delete the certificate under cursor (asks for confirmation).
-    dd    (visual) Delete all certificates in the visual selection.
     F     Prompt to filter the list by domain name.
     C     Clear the active filter.
     R     Re-fetch certificates from AWS.
@@ -524,8 +496,6 @@ Commands                                         *aws-nvim-secretsmanager-cmd*
 :AwsSM detail {name} [--region {r}] [--profile {p}]
     Open the detail view for the named secret.
 
-:AwsSM delete {name} [--region {r}] [--profile {p}]
-    Delete the named secret with no recovery window (asks for confirmation).
 
 ------------------------------------------------------------------------------
 Secrets buffer                                 *aws-nvim-secretsmanager-keys*
@@ -533,9 +503,6 @@ Secrets buffer                                 *aws-nvim-secretsmanager-keys*
 
     Key   Action ~
     <CR>  Open the detail view for the secret under cursor.
-    dd    Delete the secret under cursor (no recovery window; asks for
-          confirmation).
-    dd    (visual) Delete all secrets in the visual selection.
     F     Prompt to filter the list by secret name.
     C     Clear the active filter.
     R     Re-fetch secrets from AWS.
@@ -825,8 +792,6 @@ Commands                                             *aws-nvim-dynamodb-cmd*
 :AwsDDB scan {name} [--region {r}] [--profile {p}]
     Open the scan / query buffer for the named table.
 
-:AwsDDB delete {name} [--region {r}] [--profile {p}]
-    Delete the named table (asks for confirmation).
 
 ------------------------------------------------------------------------------
 Tables buffer                                       *aws-nvim-dynamodb-keys*
@@ -834,8 +799,6 @@ Tables buffer                                       *aws-nvim-dynamodb-keys*
 
     Key   Action ~
     <CR>  Open the per-table section menu for the table under cursor.
-    dd    Delete the table under cursor (asks for confirmation).
-    dd    (visual) Delete all tables in the visual selection.
     F     Prompt to filter the list by table name.
     C     Clear the active filter.
     R     Re-fetch tables from AWS.
@@ -875,7 +838,17 @@ Scan / Query buffer                           *aws-nvim-dynamodb-scan-keys*
     see the raw JSON instead.
 
 ==============================================================================
-19. ARCHITECTURE                                       *aws-nvim-architecture*
+19. EC2                                                  *aws-nvim-ec2*
+
+The EC2 command opens the instances list for the active AWS identity:
+
+:AwsEC2 [--region {r}] [--profile {p}]
+
+The `<leader>ax` shortcut in the iamcheyan/nvim configuration opens this list.
+The plugin itself registers the command; keymaps are configured by the consumer.
+
+==============================================================================
+20. ARCHITECTURE                                       *aws-nvim-architecture*
 
 >
     aws.nvim/
@@ -893,33 +866,26 @@ Scan / Query buffer                           *aws-nvim-dynamodb-scan-keys*
         │   ├── resources.lua        CDK construct tree + resource list viewer
         │   ├── console_url.lua      AWS Console URL builder (28 resource types)
         │   ├── events.lua           Stack events viewer
-        │   └── delete.lua           Async stack deletion with confirmation
         ├── s3/
         │   ├── init.lua             S3 public surface
         │   ├── buckets.lua          List, filter, and render buckets
-        │   ├── empty.lua            Async bucket empty with confirmation
-        │   └── delete.lua           Async bucket deletion with confirmation
         ├── cloudwatch/
         │   ├── init.lua             CloudWatch public surface
         │   ├── groups.lua           List, filter, and render log groups (paginated)
         │   ├── streams.lua          Log streams viewer (vertical split)
         │   ├── logs.lua             Log events viewer (vertical split)
-        │   └── delete.lua           Async log group deletion with confirmation
         ├── lambda/
         │   ├── init.lua             Lambda public surface
         │   ├── functions.lua        List, filter, and render functions (paginated)
         │   ├── detail.lua           Function detail viewer (vertical split)
-        │   └── delete.lua           Async function deletion with confirmation
         ├── acm/
         │   ├── init.lua             ACM public surface
         │   ├── certificates.lua     List, filter, and render certificates (paginated)
         │   ├── detail.lua           Certificate detail viewer (vertical split)
-        │   └── delete.lua           Async certificate deletion with confirmation
         ├── secretsmanager/
         │   ├── init.lua             Secrets Manager public surface
         │   ├── secrets.lua          List, filter, and render secrets (paginated)
         │   ├── detail.lua           Secret detail viewer (vertical split)
-        │   └── delete.lua           Async secret deletion with confirmation
         ├── cloudfront/
         │   ├── init.lua             CloudFront public surface
         │   ├── distributions.lua    List, filter, and render distributions (paginated)
@@ -963,7 +929,6 @@ Scan / Query buffer                           *aws-nvim-dynamodb-scan-keys*
             ├── scan_form.lua        Input form (operation, expression, index, page size)
             ├── scan_results.lua     Results renderer (table view + JSON toggle)
             ├── scan_state.lua       Shared scan state (pagination cursors)
-            └── delete.lua           Async table deletion with confirmation
 <
 
 ==============================================================================

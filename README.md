@@ -3,9 +3,11 @@
 Manage AWS resources without leaving your editor. aws.nvim brings
 CloudFormation stacks, S3 buckets, CloudWatch log groups, Lambda functions,
 ACM certificates, Secrets Manager secrets, CloudFront distributions, API
-Gateway REST APIs, ECS/Fargate clusters, IAM identities, and VPCs directly
-into Neovim buffers — letting you browse, filter, inspect, and delete using
-the same motions and keybindings you already know.
+Gateway REST APIs, ECS/Fargate clusters, IAM identities, VPCs, and EC2 instances
+directly into Neovim buffers — letting you browse, filter, and inspect
+resources using the same motions and keybindings you already know.
+
+Remote resource deletion is disabled throughout the plugin.
 
 All AWS CLI calls run asynchronously, so the editor never blocks. Output lands
 in standard `nofile` buffers, which means `/` search, `gg`/`G`, yank, and
@@ -40,6 +42,27 @@ vim.keymap.set("n", "<leader>aa", "<cmd>AwsPicker<cr>", { desc = "AWS service pi
 vim.keymap.set("n", "<leader>ap", "<cmd>AwsPicker --profile prod<cr>", { desc = "AWS picker (prod)" })
 ```
 
+In the [iamcheyan/nvim configuration](https://github.com/iamcheyan/nvim), the
+service shortcuts are grouped under `<leader>a`. Press `<leader>al` to open
+Lambda directly; Which-key shows all entries after `<leader>a`.
+
+| Key | Service |
+|---|---|
+| `a` | Service picker |
+| `c` | CloudFormation |
+| `w` | CloudWatch |
+| `s` | S3 |
+| `l` | Lambda |
+| `k` | ACM |
+| `m` | Secrets Manager |
+| `f` | CloudFront |
+| `g` | API Gateway |
+| `e` | ECS |
+| `i` | IAM |
+| `v` | VPC |
+| `d` | DynamoDB |
+| `x` | EC2 |
+
 Supported services:
 - AWS CloudFormation
 - AWS CloudWatch
@@ -53,6 +76,7 @@ Supported services:
 - AWS IAM (Users, Groups, Roles, Policies, Identity Providers)
 - AWS VPC (Subnets, Internet/NAT Gateways, Route Tables, Security Groups)
 - AWS DynamoDB (Scan, Query)
+- AWS EC2 (Instances)
 
 ## Screenshots
 
@@ -131,15 +155,12 @@ require("aws").setup({
     cloudformation = {
       open_resources = "<CR>",   -- open resources for stack under cursor
       open_events    = "E",      -- open events for stack under cursor
-      delete         = "dd",     -- delete stack under cursor
       filter         = "F",      -- prompt to filter stacks by name
       clear_filter   = "C",      -- clear active filter
       refresh        = "R",      -- re-fetch stacks from AWS
     },
     s3 = {
       open_bucket  = "<CR>",   -- open bucket in oil.nvim (oil-s3://)
-      empty        = "de",     -- empty bucket under cursor (recursive rm)
-      delete       = "dd",     -- delete bucket under cursor (must be empty first)
       filter       = "F",      -- prompt to filter buckets by name
       clear_filter = "C",      -- clear active filter
       refresh      = "R",      -- re-fetch buckets from AWS
@@ -147,7 +168,6 @@ require("aws").setup({
     cloudwatch = {
       open_streams = "<CR>",   -- open log streams for group under cursor
       open_logs    = "<CR>",   -- open log events for stream under cursor
-      delete       = "dd",     -- delete log group under cursor
       filter       = "F",      -- prompt to filter log groups by name
       clear_filter = "C",      -- clear active filter
       refresh      = "R",      -- re-fetch from AWS
@@ -155,7 +175,6 @@ require("aws").setup({
     lambda = {
       open_detail  = "<CR>",   -- open detail view for function under cursor
       open_logs    = "L",      -- open CloudWatch log streams for function
-      delete       = "dd",     -- delete function under cursor
       filter       = "F",      -- prompt to filter functions by name
       clear_filter = "C",      -- clear active filter
       refresh      = "R",      -- re-fetch from AWS
@@ -163,7 +182,6 @@ require("aws").setup({
     },
     acm = {
       open_detail    = "<CR>",   -- open detail view for certificate under cursor
-      delete         = "dd",     -- delete certificate under cursor
       filter         = "F",      -- prompt to filter certificates by domain
       clear_filter   = "C",      -- clear active filter
       refresh        = "R",      -- re-fetch from AWS
@@ -171,7 +189,6 @@ require("aws").setup({
     },
     secretsmanager = {
       open_detail    = "<CR>",   -- open detail view for secret under cursor
-      delete         = "dd",     -- delete secret under cursor (no recovery window)
       filter         = "F",      -- prompt to filter secrets by name
       clear_filter   = "C",      -- clear active filter
       refresh        = "R",      -- re-fetch from AWS
@@ -344,33 +361,26 @@ aws.nvim/
     │   ├── resources.lua           # CDK construct tree + resource list viewer
     │   ├── console_url.lua         # AWS Console URL builder (28 resource types)
     │   ├── events.lua              # Stack events viewer
-    │   └── delete.lua              # Async stack deletion with confirmation
     ├── s3/
     │   ├── init.lua                # S3 public surface
     │   ├── buckets.lua             # List, filter, and render buckets
-    │   ├── empty.lua               # Async bucket empty with confirmation
-    │   └── delete.lua              # Async bucket deletion with confirmation
     ├── cloudwatch/
     │   ├── init.lua                # CloudWatch public surface
     │   ├── groups.lua              # List, filter, and render log groups (paginated)
     │   ├── streams.lua             # Log streams viewer (vertical split)
     │   ├── logs.lua                # Log events viewer (vertical split)
-    │   └── delete.lua              # Async log group deletion with confirmation
     ├── lambda/
     │   ├── init.lua                # Lambda public surface
     │   ├── functions.lua           # List, filter, and render functions (paginated)
     │   ├── detail.lua              # Function detail viewer (vertical split)
-    │   └── delete.lua              # Async function deletion with confirmation
     ├── acm/
     │   ├── init.lua                # ACM public surface
     │   ├── certificates.lua        # List, filter, and render certificates (paginated)
     │   ├── detail.lua              # Certificate detail viewer (vertical split)
-    │   └── delete.lua              # Async certificate deletion with confirmation
     ├── secretsmanager/
     │   ├── init.lua                # Secrets Manager public surface
     │   ├── secrets.lua             # List, filter, and render secrets (paginated)
     │   ├── detail.lua              # Secret detail viewer (vertical split)
-    │   └── delete.lua              # Async secret deletion with confirmation (no recovery window)
     ├── cloudfront/
     │   ├── init.lua                # CloudFront public surface
     │   ├── distributions.lua       # List, filter, and render distributions (paginated)

@@ -28,12 +28,4 @@ function M.open_scan(table_name, call_opts)
   require("aws.dynamodb.scan").open(table_name, call_opts)
 end
 
---- Delete a DynamoDB table (with confirmation).
----@param table_name string
----@param on_done    function|nil   called after successful deletion
----@param call_opts  AwsCallOpts|nil
-function M.delete_table(table_name, on_done, call_opts)
-  require("aws.dynamodb.delete").confirm(table_name, on_done, call_opts)
-end
-
 return M

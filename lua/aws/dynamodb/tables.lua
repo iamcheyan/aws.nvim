@@ -1,4 +1,4 @@
---- aws.nvim – DynamoDB tables list, filter, delete
+--- aws.nvim – DynamoDB tables list and filter
 local M = {}
 
 local spawn = require("aws.spawn")
@@ -79,9 +79,6 @@ local function hint_line()
   local hints = {}
   if km.open_menu then
     table.insert(hints, km.open_menu .. " menu")
-  end
-  if km.delete then
-    table.insert(hints, km.delete .. " delete")
   end
   if km.filter then
     table.insert(hints, km.filter .. " filter")
@@ -289,41 +286,8 @@ end
 
 ---@param st DynamoDbTablesState
 ---@param r1 integer
----@param r2 integer
----@return string[]
-local function names_in_range(st, r1, r2)
-  local out = {}
-  local seen = {}
-  for row = r1, r2 do
-    local name = st.line_map[row]
-    if name and not seen[name] then
-      seen[name] = true
-      table.insert(out, name)
-    end
-  end
-  return out
-end
-
 ---@param st    DynamoDbTablesState
 ---@param names table<string, boolean>  set of names to remove
----@param buf   integer
-local function remove_from_state(st, names, buf)
-  local function filter_list(list)
-    local out = {}
-    for _, item in ipairs(list) do
-      if not names[item.TableName] then
-        table.insert(out, item)
-      end
-    end
-    return out
-  end
-  st.items = filter_list(st.items)
-  if st.cache then
-    st.cache = filter_list(st.cache)
-  end
-  render(buf, st)
-end
-
 -------------------------------------------------------------------------------
 -- Public
 -------------------------------------------------------------------------------
@@ -348,45 +312,6 @@ function M.open(call_opts)
   end
   local st = _state[identity]
 
-  local function delete_one()
-    local name = name_under_cursor(st)
-    if not name then
-      vim.notify("aws.nvim: no table under cursor", vim.log.levels.WARN)
-      return
-    end
-    require("aws.dynamodb.delete").confirm(name, function()
-      remove_from_state(st, { [name] = true }, buf)
-    end, call_opts)
-  end
-
-  local function delete_visual(r1, r2)
-    local names = names_in_range(st, r1, r2)
-    if #names == 0 then
-      vim.notify("aws.nvim: no tables in selection", vim.log.levels.WARN)
-      return
-    end
-    local label = #names == 1 and ("Yes, delete " .. names[1]) or ("Yes, delete " .. #names .. " tables")
-    vim.ui.select({ label, "Cancel" }, { prompt = "Delete DynamoDB tables?" }, function(_, idx)
-      if not idx or idx ~= 1 then
-        return
-      end
-      local del = require("aws.dynamodb.delete")
-      local removed = {}
-      local function next_delete(i)
-        if i > #names then
-          remove_from_state(st, removed, buf)
-          return
-        end
-        local n = names[i]
-        del.run(n, function()
-          removed[n] = true
-          next_delete(i + 1)
-        end, call_opts)
-      end
-      next_delete(1)
-    end)
-  end
-
   keymaps.apply_dynamodb(buf, {
     open_menu = function()
       local name = name_under_cursor(st)
@@ -396,9 +321,6 @@ function M.open(call_opts)
       end
       require("aws.dynamodb.menu").open(name, call_opts)
     end,
-
-    delete = delete_one,
-    delete_visual = delete_visual,
 
     filter = function()
       vim.ui.input({ prompt = "Filter tables: ", default = st.filter }, function(input)

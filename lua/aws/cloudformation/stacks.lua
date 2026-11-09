@@ -65,9 +65,6 @@ local function hint_line()
   if km.open_events then
     table.insert(hints, km.open_events .. " events")
   end
-  if km.delete then
-    table.insert(hints, km.delete .. " delete")
-  end
   if km.filter then
     table.insert(hints, km.filter .. " filter")
   end
@@ -203,35 +200,8 @@ end
 
 ---@param st CfStacksState
 ---@param r1 integer
----@param r2 integer
----@return string[]
-local function stacks_in_range(st, r1, r2)
-  local names = {}
-  local seen = {}
-  for row = r1, r2 do
-    local name = st.line_map[row]
-    if name and not seen[name] then
-      seen[name] = true
-      table.insert(names, name)
-    end
-  end
-  return names
-end
-
 ---@param st    CfStacksState
 ---@param names table<string, boolean>
----@param buf   integer
-local function remove_from_state(st, names, buf)
-  local out = {}
-  for _, s in ipairs(st.stacks) do
-    if not names[s.StackName] then
-      table.insert(out, s)
-    end
-  end
-  st.stacks = out
-  render(buf, st)
-end
-
 -------------------------------------------------------------------------------
 -- Public
 -------------------------------------------------------------------------------
@@ -254,46 +224,6 @@ function M.open(call_opts)
   end
   local st = _state[identity]
 
-  local delete_mod = require("aws.cloudformation.delete")
-
-  local function delete_one()
-    local name = stack_under_cursor(st)
-    if not name then
-      vim.notify("aws.nvim: no stack under cursor", vim.log.levels.WARN)
-      return
-    end
-    delete_mod.confirm(name, function()
-      remove_from_state(st, { [name] = true }, buf)
-    end, call_opts)
-  end
-
-  local function delete_visual(r1, r2)
-    local names = stacks_in_range(st, r1, r2)
-    if #names == 0 then
-      vim.notify("aws.nvim: no stacks in selection", vim.log.levels.WARN)
-      return
-    end
-    local label = #names == 1 and ("Yes, delete " .. names[1]) or ("Yes, delete " .. #names .. " stacks")
-    vim.ui.select({ label, "Cancel" }, { prompt = "Delete CloudFormation stacks?" }, function(_, idx)
-      if not idx or idx ~= 1 then
-        return
-      end
-      local removed = {}
-      local function next_delete(i)
-        if i > #names then
-          remove_from_state(st, removed, buf)
-          return
-        end
-        local name = names[i]
-        delete_mod.run(name, function()
-          removed[name] = true
-          next_delete(i + 1)
-        end, call_opts)
-      end
-      next_delete(1)
-    end)
-  end
-
   keymaps.apply_cloudformation(buf, {
     open_resources = function()
       local name = stack_under_cursor(st)
@@ -312,9 +242,6 @@ function M.open(call_opts)
       end
       require("aws.cloudformation.events").open(name, call_opts)
     end,
-
-    delete = delete_one,
-    delete_visual = delete_visual,
 
     filter = function()
       vim.ui.input({ prompt = "Filter stacks: ", default = st.filter }, function(input)

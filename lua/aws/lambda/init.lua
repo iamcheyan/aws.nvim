@@ -15,12 +15,4 @@ function M.open_detail(fn_name, call_opts)
   require("aws.lambda.detail").open(fn_name, call_opts)
 end
 
---- Prompt and delete a Lambda function by name.
----@param fn_name    string
----@param on_success fun()|nil
----@param call_opts  AwsCallOpts|nil
-function M.delete_function(fn_name, on_success, call_opts)
-  require("aws.lambda.delete").confirm(fn_name, on_success, call_opts)
-end
-
 return M

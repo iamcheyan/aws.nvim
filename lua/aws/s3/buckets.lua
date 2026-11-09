@@ -81,12 +81,6 @@ local function hint_line()
   if km.open_bucket then
     table.insert(hints, km.open_bucket .. " open")
   end
-  if km.empty then
-    table.insert(hints, km.empty .. " empty")
-  end
-  if km.delete then
-    table.insert(hints, km.delete .. " delete")
-  end
   if km.filter then
     table.insert(hints, km.filter .. " filter")
   end
@@ -194,35 +188,7 @@ end
 
 --- Return the names of all buckets whose buffer lines fall inside [r1, r2].
 ---@param r1 integer
----@param r2 integer
----@return string[]
-local function buckets_in_range(r1, r2)
-  local names = {}
-  local seen = {}
-  for row = r1, r2 do
-    local name = _line_map[row]
-    if name and not seen[name] then
-      seen[name] = true
-      table.insert(names, name)
-    end
-  end
-  return names
-end
-
---- Remove `names` from `_buckets` in-place, then re-render.
 ---@param names table<string, boolean>  set of names to remove
----@param buf   integer
-local function remove_from_state(names, buf)
-  local out = {}
-  for _, b in ipairs(_buckets) do
-    if not names[b.Name] then
-      table.insert(out, b)
-    end
-  end
-  _buckets = out
-  render(buf)
-end
-
 -------------------------------------------------------------------------------
 -- Public
 -------------------------------------------------------------------------------
@@ -243,53 +209,6 @@ end
 function M.open(call_opts)
   local buf = buf_mod.get_or_create(BUF_NAME, FILETYPE)
   buf_mod.open_split(buf)
-
-  local empty_mod = require("aws.s3.empty")
-  local delete_mod = require("aws.s3.delete")
-
-  -- Single-line delete (normal mode dd)
-  local function delete_one()
-    local name = bucket_under_cursor()
-    if not name then
-      vim.notify("aws.nvim: no bucket under cursor", vim.log.levels.WARN)
-      return
-    end
-    empty_mod.confirm(name, function()
-      delete_mod.run(name, function()
-        remove_from_state({ [name] = true }, buf)
-      end, call_opts)
-    end, call_opts)
-  end
-
-  -- Multi-line delete (visual mode dd) — confirm once, empty+delete sequentially
-  local function delete_visual(r1, r2)
-    local names = buckets_in_range(r1, r2)
-    if #names == 0 then
-      vim.notify("aws.nvim: no buckets in selection", vim.log.levels.WARN)
-      return
-    end
-    local label = #names == 1 and ("Yes, delete " .. names[1]) or ("Yes, delete " .. #names .. " buckets")
-    vim.ui.select({ label, "Cancel" }, { prompt = "Empty and delete S3 buckets?" }, function(_, idx)
-      if not idx or idx ~= 1 then
-        return
-      end
-      local removed = {}
-      local function next_delete(i)
-        if i > #names then
-          remove_from_state(removed, buf)
-          return
-        end
-        local name = names[i]
-        empty_mod.run(name, function()
-          delete_mod.run(name, function()
-            removed[name] = true
-            next_delete(i + 1)
-          end, call_opts)
-        end, call_opts)
-      end
-      next_delete(1)
-    end)
-  end
 
   keymaps.apply_s3(buf, {
     open_bucket = function()
@@ -329,22 +248,6 @@ function M.open(call_opts)
       local scheme = (vim.version().minor >= 11) and "oil-s3://" or "oil-sss://"
       oil.open(scheme .. name .. "/")
     end,
-
-    empty = function()
-      local name = bucket_under_cursor()
-      if not name then
-        vim.notify("aws.nvim: no bucket under cursor", vim.log.levels.WARN)
-        return
-      end
-      empty_mod.confirm(name, function()
-        vim.defer_fn(function()
-          fetch(buf, call_opts)
-        end, 1000)
-      end, call_opts)
-    end,
-
-    delete = delete_one,
-    delete_visual = delete_visual,
 
     filter = function()
       vim.ui.input({ prompt = "Filter buckets: ", default = _filter }, function(input)
