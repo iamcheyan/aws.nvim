@@ -70,8 +70,11 @@ local function hint_line()
   if km.refresh then
     table.insert(hints, km.refresh .. " refresh")
   end
+  if km.edit_source then
+    table.insert(hints, km.edit_source .. " edit")
+  end
   if km.download_source then
-    table.insert(hints, km.download_source .. " download source")
+    table.insert(hints, km.download_source .. " download")
   end
   if km.upload then
     table.insert(hints, km.upload .. " upload")
