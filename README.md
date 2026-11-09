@@ -420,17 +420,34 @@ The Lambda list opened through `:AwsPicker` includes these actions:
 
 | Key | Action |
 |---|---|
-| `D` | Download selected function source into `lambda/<function-name>` in the Neovim working directory |
+| `D` | Download the selected function source into `lambda/<function-name>` — download only, no buffer is opened |
+| `E` | Open the function source for editing; when no local copy exists it downloads first |
+| `I` | Open the interactive invoke panel for the selected function |
 | `U` | Upload the local binding for the selected function |
-| `I` | Prompt for JSON and invoke the selected, locally bound function |
-| `R` | Upload the selected function, then invoke it |
+| `R` | Upload the local binding, then open the invoke panel and invoke |
 | `L` (`Shift-L`) | Follow the selected function's CloudWatch logs in a split; press `Shift-L` again or run `:AwsLambdaLogsStop` to stop |
 | `l` | Open the existing CloudWatch log stream browser |
 | `<F5>` | Refresh the Lambda list |
 
+`D` and `E` are deliberately different: `D` only materialises the source on disk, `E` always ends with an editable buffer open. Pressing `E` on a function that has never been downloaded performs the download and opens the entrypoint, so there is no "no local source binding" dead end.
+
 Downloads use `aws lambda get-function` and `Code.Location`, display curl progress, extract into a staging directory, validate archive paths and reject symbolic links, then replace the old cache. The plugin opens the first available entry in this order: `app.py`, `index.js`, `handler.py`, `main.py`. `.aws-meta.json` stores the function name, AWS region, and account.
 
-From a source file inside a binding, `:AwsLambdaUpload`, `:AwsLambdaInvoke`, `:AwsLambdaUploadInvoke`, and `:AwsLambdaLogs` are also available. They accept `--profile` and `--region`, such as `:AwsLambdaUpload --profile prod --region ap-northeast-1`. Upload archives the source directory and calls `aws lambda update-function-code`; invoke displays the response and decoded AWS logs in a floating buffer. AWS CLI errors are reported verbatim.
+### Interactive invoke panel
+
+`I` in the Lambda list (or `:AwsLambdaInvoke` from a bound source file) opens a horizontal split pinned to the bottom of the editor:
+
+- an editable **JSON payload box** with syntax highlighting and a `filetype=json` buffer;
+- a **button bar** under it with `[ Invoke <C-s> ]`, `[ Upload + Invoke ]`, `[ Copy response ]`, and `[ Close q ]`;
+- a live status on the right (`payments-api · ready`, `invoking…`, `ok · 200`, `response copied`).
+
+Buttons respond to mouse clicks as well as keys: `<C-s>`/`<C-CR>` invoke, `<C-a>` uploads then invokes, `q`/`<Esc>` close. The invocation result (`Status`, `RequestId`, response body, and the decoded CloudWatch `LogResult`) opens in a floating buffer, and `Copy response` puts the raw response in the unnamed register. The payload is remembered per function while the panel stays open across calls.
+
+![Interactive invoke panel](docs/screenshots/lambda-invoke-panel.png)
+
+![Invoke result with decoded CloudWatch logs](docs/screenshots/lambda-invoke-result.png)
+
+From a source file inside a binding, `:AwsLambdaUpload`, `:AwsLambdaInvoke`, `:AwsLambdaUploadInvoke`, and `:AwsLambdaLogs` are also available. They accept `--profile` and `--region`, such as `:AwsLambdaUpload --profile prod --region ap-northeast-1`. Upload archives the source directory and calls `aws lambda update-function-code`; invoke opens the interactive panel, and the result displays the response and decoded AWS logs in a floating buffer. AWS CLI errors are reported verbatim.
 
 Auto deploy after save is opt-in:
 

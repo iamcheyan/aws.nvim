@@ -426,13 +426,41 @@ Functions buffer                                      *aws-nvim-lambda-keys*
     F     Prompt to filter the list by function name.
     C     Clear the active filter.
     R     Re-fetch functions from AWS.
-    D     Download the function source into lambda/<name> and open it.
-    E     Open an existing bound source for editing.
+    D     Download the function source into lambda/<name>. Download only:
+          no buffer is opened.
+    E     Open the function source for editing. When no local copy exists
+          the source is downloaded first and then opened.
+    I     Open the interactive invoke panel (see |aws-nvim-lambda-invoke|).
+    U     Upload the local binding for the function under cursor.
+    R     Upload the local binding, then invoke it from the panel.
+    <S-L> Follow the function's CloudWatch logs (Shift-L toggles).
     q     Close the split window.
 
     All keys are configurable via |aws-nvim-keymaps|.
 
     The list is paginated and all pages are fetched automatically.
+
+------------------------------------------------------------------------------
+Interactive invoke panel                      *aws-nvim-lambda-invoke*
+
+    Opened with `I` in the functions buffer or :AwsLambdaInvoke from a bound
+    source file. A horizontal split at the bottom of the editor contains:
+
+    - a JSON payload box (filetype json) that starts from the last payload
+      used for that function;
+    - a button bar with [ Invoke ], [ Upload + Invoke ], [ Copy response ]
+      and [ Close ]. Buttons react to <LeftMouse> as well as keys.
+
+    Key   Action ~
+    <C-s>   Invoke with the current payload.
+    <C-CR>  Same as <C-s>.
+    <C-a>   Upload the local binding, then invoke.
+    q       Close the panel.
+    <Esc>   Close the panel.
+
+    Invalid JSON is reported inline and never reaches the AWS CLI. The result
+    (StatusCode, RequestId, response body and decoded LogResult) opens in a
+    floating buffer named aws://lambda/invoke-result/<name>.
 
 ------------------------------------------------------------------------------
 Function detail buffer                         *aws-nvim-lambda-detail-keys*

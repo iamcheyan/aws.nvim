@@ -38,7 +38,11 @@ end
 local function display_buffer(title, lines, buffer_name)
   local buf = vim.api.nvim_create_buf(false, true)
   if buffer_name then
-    vim.api.nvim_buf_set_name(buf, buffer_name)
+    local existing = vim.fn.bufnr(buffer_name)
+    if existing ~= -1 then
+      pcall(vim.api.nvim_buf_delete, existing, { force = true })
+    end
+    pcall(vim.api.nvim_buf_set_name, buf, buffer_name)
   end
   vim.bo[buf].bufhidden = "wipe"
   vim.bo[buf].filetype = "json"
@@ -63,6 +67,8 @@ local function display_buffer(title, lines, buffer_name)
   end, { buffer = buf, silent = true, desc = "Close Lambda result" })
   return buf, win
 end
+
+M.show_text = display_buffer
 
 local function valid_function_name(name)
   return type(name) == "string" and name:match("^[%w_-]+$") ~= nil and name ~= "." and name ~= ".."
@@ -184,7 +190,24 @@ local function archive_and_upload(meta, dir, call_opts, done)
   end)
 end
 
-function M.download_source(function_name, call_opts)
+--- Resolve the file to open inside a downloaded Lambda directory.
+---@param dir string
+---@return string
+local function open_entrypoint(dir)
+  for _, candidate in ipairs({ "app.py", "index.js", "handler.py", "main.py" }) do
+    local entry = dir .. "/" .. candidate
+    if vim.fn.filereadable(entry) == 1 then
+      return entry
+    end
+  end
+  return dir
+end
+
+--- Download and publish a Lambda source archive into lambda/<name>/.
+---@param function_name string
+---@param call_opts table|nil
+---@param done fun(root: string, entry: string)|nil called after the source is published
+local function download_and_publish(function_name, call_opts, done)
   if not valid_function_name(function_name) then
     notify("invalid Lambda function name", vim.log.levels.ERROR)
     return
@@ -300,22 +323,12 @@ function M.download_source(function_name, call_opts)
                   vim.fn.delete(backup, "rf")
                 end
 
-                local candidates = { "app.py", "index.js", "handler.py", "main.py" }
-                for _, candidate in ipairs(candidates) do
-                  local entry = root .. "/" .. candidate
-                  if vim.fn.filereadable(entry) == 1 then
-                    vim.cmd.edit(vim.fn.fnameescape(entry))
-                    notify("source downloaded to " .. vim.fn.fnamemodify(root, ":~"))
-                    if identity.code ~= 0 then
-                      notify("could not read AWS account; binding saved as unknown", vim.log.levels.WARN)
-                    end
-                    return
-                  end
-                end
-                vim.cmd.edit(vim.fn.fnameescape(root))
                 notify("source downloaded to " .. vim.fn.fnamemodify(root, ":~"))
                 if identity.code ~= 0 then
                   notify("could not read AWS account; binding saved as unknown", vim.log.levels.WARN)
+                end
+                if done then
+                  done(root, open_entrypoint(root))
                 end
               end)
             end)
@@ -326,34 +339,50 @@ function M.download_source(function_name, call_opts)
   end)
 end
 
-local function binding_for_function(function_name)
+--- Look up an existing local binding without notifying the user.
+---@param function_name string
+---@return table|nil, string|nil
+local function find_binding(function_name)
   if not valid_function_name(function_name) then
-    notify("invalid Lambda function name", vim.log.levels.ERROR)
     return
   end
   local root = vim.fn.getcwd() .. "/lambda/" .. function_name
   local meta, dir = read_binding(metadata_path(root))
   if not meta or dir ~= root or meta.function_name ~= function_name then
+    return
+  end
+  return meta, dir
+end
+
+local function binding_for_function(function_name)
+  if not valid_function_name(function_name) then
+    notify("invalid Lambda function name", vim.log.levels.ERROR)
+    return
+  end
+  local meta, dir = find_binding(function_name)
+  if not meta then
     notify("no local source binding for Lambda " .. function_name, vim.log.levels.WARN)
     return
   end
   return meta, dir
 end
 
+--- Download the Lambda source archive without opening any buffer.
+function M.download_source(function_name, call_opts)
+  download_and_publish(function_name, call_opts)
+end
+
+--- Open the local source for a Lambda function, downloading it when missing.
+--- `E` is "edit": it always opens an editable buffer for the function.
 function M.edit_source(function_name, call_opts)
-  local meta, dir = binding_for_function(function_name)
-  if not meta then
+  local meta, dir = find_binding(function_name)
+  if meta then
+    vim.cmd.edit(vim.fn.fnameescape(open_entrypoint(dir)))
     return
   end
-  local candidates = { "app.py", "index.js", "handler.py", "main.py" }
-  for _, candidate in ipairs(candidates) do
-    local entry = dir .. "/" .. candidate
-    if vim.fn.filereadable(entry) == 1 then
-      vim.cmd.edit(vim.fn.fnameescape(entry))
-      return
-    end
-  end
-  vim.cmd.edit(vim.fn.fnameescape(dir))
+  download_and_publish(function_name, call_opts, function(_root, entry)
+    vim.cmd.edit(vim.fn.fnameescape(entry))
+  end)
 end
 
 function M.upload_current(call_opts, done)
@@ -370,106 +399,132 @@ function M.upload_function(function_name, call_opts, done)
   end
 end
 
-local function invoke(meta, call_opts)
-  local opts = get_call_opts(meta, call_opts)
-  vim.ui.input({ prompt = "Lambda event JSON: ", default = "{}" }, function(event)
-    if event == nil then
+--- Format an invoke result for display.
+---@param result table
+---@return string[]
+function M.result_lines(result)
+  local lines = { "Status: " .. tostring(result.status or "unknown") }
+  if result.request_id then
+    table.insert(lines, "RequestId: " .. tostring(result.request_id))
+  end
+  table.insert(lines, "")
+  table.insert(lines, "Response:")
+  vim.list_extend(lines, vim.split(result.response or "(empty response)", "\n", { plain = true }))
+  if type(result.logs) == "string" and vim.trim(result.logs) ~= "" then
+    table.insert(lines, "")
+    table.insert(lines, "Logs:")
+    vim.list_extend(lines, vim.split(vim.trim(result.logs), "\n", { plain = true }))
+  end
+  return lines
+end
+
+--- Invoke a Lambda function with a raw JSON event payload.
+---@param function_name string
+---@param event_json     string  raw JSON payload typed by the user
+---@param call_opts      table|nil
+---@param callback       fun(result: table)|nil receives { ok, response, logs, status, error }
+function M.invoke_payload(function_name, event_json, call_opts, callback)
+  local function finish(result)
+    if callback then
+      callback(result)
       return
     end
-    local decoded, payload = pcall(vim.json.decode, event)
-    if not decoded then
-      notify("invalid JSON event: " .. tostring(payload), vim.log.levels.ERROR)
-      return
+    if result.ok then
+      M.show_text("Lambda Invoke: " .. function_name, M.result_lines(result), "aws://lambda/invoke/" .. function_name)
+    else
+      notify(result.error or "Lambda invoke failed", vim.log.levels.ERROR)
     end
-    local input = vim.fn.tempname() .. ".json"
-    local output = vim.fn.tempname() .. ".json"
-    if vim.fn.writefile({ event }, input) ~= 0 then
-      notify("could not write Lambda event input", vim.log.levels.ERROR)
-      return
-    end
-    local args = aws_args({
-      "lambda",
-      "invoke",
-      "--function-name",
-      meta.function_name,
-      "--payload",
-      "fileb://" .. input,
-      "--cli-binary-format",
-      "raw-in-base64-out",
-      "--log-type",
-      "Tail",
-      output,
-    }, opts)
-    run(args, { text = true }, function(result)
-      vim.fn.delete(input)
-      if result.code ~= 0 then
-        vim.fn.delete(output)
-        notify(vim.trim(result.stderr or "AWS CLI invoke failed"), vim.log.levels.ERROR)
-        return
-      end
-      local response = vim.fn.filereadable(output) == 1 and table.concat(vim.fn.readfile(output), "\n")
-        or "(empty response)"
+  end
+
+  if not valid_function_name(function_name) then
+    finish({ ok = false, error = "invalid Lambda function name" })
+    return
+  end
+  if not pcall(vim.json.decode, event_json or "") then
+    finish({ ok = false, error = "invalid JSON event" })
+    return
+  end
+
+  local meta = find_binding(function_name)
+  local opts = get_call_opts(meta or {}, call_opts)
+  local input = vim.fn.tempname() .. ".json"
+  local output = vim.fn.tempname() .. ".json"
+  if vim.fn.writefile({ event_json }, input) ~= 0 then
+    finish({ ok = false, error = "could not write Lambda event input" })
+    return
+  end
+
+  local args = aws_args({
+    "lambda",
+    "invoke",
+    "--function-name",
+    function_name,
+    "--payload",
+    "fileb://" .. input,
+    "--cli-binary-format",
+    "raw-in-base64-out",
+    "--log-type",
+    "Tail",
+    output,
+  }, opts)
+  run(args, { text = true }, function(result)
+    vim.fn.delete(input)
+    if result.code ~= 0 then
       vim.fn.delete(output)
-      local lines = { "Lambda response:", "" }
-      vim.list_extend(lines, vim.split(response, "\n", { plain = true }))
-      local meta_ok, invoke_meta = pcall(vim.json.decode, result.stdout or "{}")
-      if meta_ok and type(invoke_meta) == "table" and invoke_meta.LogResult and vim.base64 then
-        local log_ok, logs = pcall(vim.base64.decode, invoke_meta.LogResult)
-        table.insert(lines, "")
-        table.insert(lines, "Lambda logs:")
+      finish({ ok = false, error = vim.trim(result.stderr or "AWS CLI invoke failed") })
+      return
+    end
+    local response = vim.fn.filereadable(output) == 1 and table.concat(vim.fn.readfile(output), "\n")
+      or "(empty response)"
+    vim.fn.delete(output)
+    local meta_ok, invoke_meta = pcall(vim.json.decode, result.stdout or "{}")
+    local logs, status, request_id
+    if meta_ok and type(invoke_meta) == "table" then
+      status = invoke_meta.StatusCode
+      if type(invoke_meta.LogResult) == "string" and vim.base64 then
+        local log_ok, decoded = pcall(vim.base64.decode, invoke_meta.LogResult)
         if log_ok then
-          vim.list_extend(lines, vim.split(logs, "\n", { plain = true }))
-        else
-          table.insert(lines, "(could not decode AWS log output)")
+          logs = decoded
         end
-      elseif not meta_ok then
-        table.insert(lines, "")
-        table.insert(lines, "AWS invoke metadata was not valid JSON:")
-        vim.list_extend(lines, vim.split(result.stdout or "", "\n", { plain = true }))
       end
-      display_buffer("Lambda Invoke: " .. meta.function_name, lines, "aws://lambda/invoke/" .. meta.function_name)
-    end)
+      if type(invoke_meta.ResponseMetadata) == "table" then
+        request_id = invoke_meta.ResponseMetadata.RequestId
+      end
+    end
+    finish({
+      ok = true,
+      response = response,
+      logs = logs,
+      status = status,
+      request_id = request_id,
+    })
   end)
+end
+
+local function open_invoke_ui(function_name, call_opts, mode)
+  require("aws.lambda.invoke_ui").open(function_name, call_opts, { mode = mode })
 end
 
 function M.invoke_current(call_opts)
   local meta = current_binding()
   if meta then
-    invoke(meta, get_call_opts(meta, call_opts))
+    open_invoke_ui(meta.function_name, get_call_opts(meta, call_opts), nil)
   end
 end
 
 function M.invoke_function(function_name, call_opts)
-  local meta = binding_for_function(function_name)
-  if meta then
-    invoke(meta, get_call_opts(meta, call_opts))
-  end
+  open_invoke_ui(function_name, call_opts or {}, nil)
 end
 
 function M.upload_and_invoke(call_opts)
-  local meta, dir = current_binding()
-  if not meta then
-    return
+  local meta = current_binding()
+  if meta then
+    open_invoke_ui(meta.function_name, get_call_opts(meta, call_opts), "upload_invoke")
   end
-  local opts = get_call_opts(meta, call_opts)
-  archive_and_upload(meta, dir, opts, function(ok)
-    if ok then
-      invoke(meta, opts)
-    end
-  end)
 end
 
 function M.upload_and_invoke_function(function_name, call_opts)
-  local meta, dir = binding_for_function(function_name)
-  if not meta then
-    return
-  end
-  local opts = get_call_opts(meta, call_opts)
-  archive_and_upload(meta, dir, opts, function(ok)
-    if ok then
-      invoke(meta, opts)
-    end
-  end)
+  open_invoke_ui(function_name, call_opts or {}, "upload_invoke")
 end
 
 function M.tail_logs(call_opts, function_name)

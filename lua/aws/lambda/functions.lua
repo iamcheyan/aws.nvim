@@ -76,6 +76,9 @@ local function hint_line()
   if km.download_source then
     table.insert(hints, km.download_source .. " download")
   end
+  if km.invoke then
+    table.insert(hints, km.invoke .. " invoke")
+  end
   if km.live_logs then
     table.insert(hints, km.live_logs .. " live logs")
   end
@@ -317,14 +320,14 @@ function M.open(call_opts)
     invoke = function()
       local name = fn_under_cursor(st)
       if name then
-        require("aws.lambda.workflow").invoke_function(name, call_opts)
+        require("aws.lambda.invoke_ui").open(name, call_opts)
       end
     end,
 
     upload_invoke = function()
       local name = fn_under_cursor(st)
       if name then
-        require("aws.lambda.workflow").upload_and_invoke_function(name, call_opts)
+        require("aws.lambda.invoke_ui").open(name, call_opts, { mode = "upload_invoke" })
       end
     end,
 

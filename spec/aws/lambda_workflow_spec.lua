@@ -32,7 +32,10 @@ case "$*" in
   *"lambda invoke"*)
     for output in "$@"; do last="$output"; done
     printf '%s\n' '{"statusCode":200,"ok":true}' > "$last"
-    printf '%s\n' '{"StatusCode":200,"LogResult":""}'
+    payload=$(for arg in "$@"; do case $arg in fileb://*) echo "${arg#fileb://}" ;; esac; done | head -1)
+    printf 'START RequestId: req-1 Version: $1\nEVENT %s\nEND RequestId: req-1\n' "$(cat "$payload" 2>/dev/null | tr '\n' ' ')" > "$AWS_FAKE_LOGDATA"
+    encoded=$(base64 -w0 < "$AWS_FAKE_LOGDATA")
+    printf '{"StatusCode":200,"LogResult":"%s","ResponseMetadata":{"RequestId":"req-1"}}\n' "$encoded"
     ;;
   *"logs tail"*) exec sleep 30 ;;
   *) printf 'unexpected aws args: %s\n' "$*" >&2; exit 2 ;;
@@ -113,6 +116,7 @@ describe("Lambda workflow", function()
     vim.env.AWS_FAKE_LOG = fixture .. "/aws.log"
     vim.env.AWS_FAKE_ZIP = fixture .. "/source.zip"
     vim.env.AWS_FAKE_SOURCE = fixture .. "/app.py"
+    vim.env.AWS_FAKE_LOGDATA = fixture .. "/lambda.log"
     vim.cmd.cd(fixture)
   end)
 
@@ -128,8 +132,8 @@ describe("Lambda workflow", function()
     config.setup({})
   end)
 
-  it("downloads, binds, and opens the preferred entrypoint asynchronously", function()
-    workflow.download_source("payments-api", { profile = "prod", region = "ap-northeast-1" })
+  it("E downloads, binds, and opens the preferred entrypoint asynchronously", function()
+    workflow.edit_source("payments-api", { profile = "prod", region = "ap-northeast-1" })
     wait_for(function()
       return vim.fn.filereadable(fixture .. "/lambda/payments-api/.aws-meta.json") == 1
     end)
@@ -166,14 +170,24 @@ describe("Lambda workflow", function()
       "D"
     ))
     vim.api.nvim_win_set_cursor(0, { row, 0 })
+    local list_buf = vim.api.nvim_get_current_buf()
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("D", true, false, true), "x", false)
 
     local source = fixture .. "/lambda/payments-api/app.py"
     wait_for(function()
       return vim.fn.filereadable(source) == 1
     end)
-    assert.equals(source, vim.api.nvim_buf_get_name(0))
     assert.same({ "print('hello')" }, vim.fn.readfile(source))
+    -- D only downloads: the Lambda list stays focused, nothing is opened for editing.
+    assert.equals(list_buf, vim.api.nvim_get_current_buf())
+    assert.equals("aws-lambda", vim.bo[list_buf].filetype)
+
+    -- E then opens the downloaded entrypoint.
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("E", true, false, true), "x", false)
+    wait_for(function()
+      return vim.api.nvim_buf_get_name(0) == source
+    end)
+    assert.equals(source, vim.api.nvim_buf_get_name(0))
   end)
 
   it("opens an existing bound Lambda source for editing without replacing local changes", function()
@@ -217,7 +231,7 @@ describe("Lambda workflow", function()
     assert.same({ "known good source" }, vim.fn.readfile(dir .. "/app.py"))
   end)
 
-  it("uploads the bound source and invokes it with a JSON event", function()
+  it("upload and invoke from the interactive panel emits AWS calls and shows the result", function()
     local dir = fixture .. "/lambda/payments-api"
     vim.fn.mkdir(dir, "p")
     vim.fn.writefile(
@@ -227,18 +241,17 @@ describe("Lambda workflow", function()
     vim.fn.writefile({ "print('updated')" }, dir .. "/app.py")
     vim.cmd.edit(vim.fn.fnameescape(dir .. "/app.py"))
 
-    vim.ui.input = function(_, callback)
-      callback('{"action":"test"}')
-    end
     workflow.upload_and_invoke({ profile = "prod" })
     wait_for(function()
-      return vim.api.nvim_buf_get_name(0) == "aws://lambda/invoke/payments-api"
+      return require("aws.lambda.invoke_ui").inspect().last_result ~= nil
     end)
 
     local calls = table.concat(vim.fn.readfile(fixture .. "/aws.log"), "\n")
     assert.is_truthy(calls:find("lambda update%-function%-code", 1, false))
     assert.is_truthy(calls:find("lambda invoke", 1, true))
-    assert.is_truthy(table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), "\n"):find('"statusCode":200', 1, true))
+    local result = require("aws.lambda.invoke_ui").inspect().last_result
+    assert.equals(200, result.status)
+    assert.is_truthy(result.response:find('"statusCode":200', 1, true))
   end)
 
   it("deploys saved bound files and ignores ordinary project files", function()

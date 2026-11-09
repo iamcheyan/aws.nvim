@@ -70,6 +70,7 @@ aws-nvim-keymaps	aws-nvim.txt	/*aws-nvim-keymaps*
 aws-nvim-lambda	aws-nvim.txt	/*aws-nvim-lambda*
 aws-nvim-lambda-cmd	aws-nvim.txt	/*aws-nvim-lambda-cmd*
 aws-nvim-lambda-detail-keys	aws-nvim.txt	/*aws-nvim-lambda-detail-keys*
+aws-nvim-lambda-invoke	aws-nvim.txt	/*aws-nvim-lambda-invoke*
 aws-nvim-lambda-keys	aws-nvim.txt	/*aws-nvim-lambda-keys*
 aws-nvim-picker	aws-nvim.txt	/*aws-nvim-picker*
 aws-nvim-requirements	aws-nvim.txt	/*aws-nvim-requirements*
