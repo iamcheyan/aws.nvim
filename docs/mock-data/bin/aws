@@ -1,0 +1,84 @@
+#!/bin/sh
+# Mock AWS CLI for aws.nvim manual testing and specs.
+#
+#   export PATH="$PWD/docs/mock-data/bin:$PATH"
+#   export AWS_CONFIG_FILE="$PWD/docs/mock-data/aws-config"
+#   export AWS_PROFILE=dev
+#   export AWS_FAKE_LOG=/tmp/aws.nvim-mock.log
+#
+# Every call is logged as "<profile> <args>" so tests can prove which profile
+# the plugin passed through. Set AWS_FAKE_FAIL=1 to simulate AccessDenied.
+set -u
+
+LOG="${AWS_FAKE_LOG:-/tmp/aws.nvim-mock.log}"
+PROFILE="${AWS_PROFILE:-default}"
+REGION="${AWS_DEFAULT_REGION:-${AWS_REGION:-}}"
+
+printf '%s %s\n' "$PROFILE" "$*" >>"$LOG"
+
+fail_denied() {
+  printf 'An error occurred (AccessDeniedException) when calling the %s operation: User: arn:aws:iam::123456789012:user/mock is not authorized\n' "$1" >&2
+  exit 254
+}
+
+emit_invoke() {
+  # Write the response body to the positional output file, then print metadata.
+  out=""
+  for arg in "$@"; do
+    case "$arg" in
+      */response.json|*.json) out="$arg" ;;
+    esac
+  done
+  if [ -n "$out" ]; then
+    printf '{"statusCode":200,"body":{"ok":true,"profile":"%s"}}\n' "$PROFILE" >"$out"
+  fi
+  logs='START RequestId: mock-1 Version: $LATEST
+[INFO] mock invoke with profile '"$PROFILE"'
+END RequestId: mock-1'
+  encoded=$(printf '%s' "$logs" | base64 | tr -d '\n')
+  printf '{"StatusCode":200,"ExecutedVersion":"$LATEST","LogResult":"%s","ResponseMetadata":{"RequestId":"mock-1"}}\n' "$encoded"
+}
+
+case "$*" in
+  *"configure get region"*) printf '%s\n' "${REGION:-ap-northeast-1}" ;;
+  *"sts get-caller-identity"*) printf '%s\n' '123456789012' ;;
+
+  *"lambda list-functions"*)
+    printf '%s\n' '{"Functions":[{"FunctionName":"dwh-dev","Runtime":"python3.12","MemorySize":512,"CodeSize":734,"LastModified":"2026-11-09T04:40:12.000+0000"},{"FunctionName":"payments-api","Runtime":"nodejs20.x","MemorySize":256,"CodeSize":4096,"LastModified":"2026-11-08T10:00:00.000+0000"}]}'
+    ;;
+  *"lambda get-function "*) printf '%s\n' '{"Configuration":{"FunctionName":"dwh-dev","Runtime":"python3.12"},"Code":{"Location":"mock://lambda/dwh-dev.zip"}}' ;;
+  *"lambda get-function-configuration"*)
+    printf '%s\n' '{"FunctionName":"dwh-dev","Runtime":"python3.12","Architectures":["x86_64"],"MemorySize":512,"Timeout":30,"Handler":"handler.handler","CodeSha256":"mock-sha-8f2c1a9e","CodeSize":734,"LastModified":"2026-11-09T04:40:12.000+0000","Environment":{"Variables":{"DB_HOST":"db.mock","STAGE":"dev"}}}'
+    ;;
+  *"lambda update-function-code"*)
+    [ "${AWS_FAKE_FAIL:-0}" = "1" ] && fail_denied UpdateFunctionCode
+    printf '%s\n' '{"FunctionName":"dwh-dev","CodeSize":734,"LastModified":"2026-11-09T05:10:00.000+0000","RevisionId":"mock-rev"}'
+    ;;
+  *"lambda invoke"*) emit_invoke "$@" ;;
+
+  *"logs tail"*)
+    printf '2026-11-09T05:10:01Z START RequestId: mock-1 Version: $LATEST\n'
+    printf '2026-11-09T05:10:01Z [INFO] mock log line for profile %s\n' "$PROFILE"
+    printf '2026-11-09T05:10:02Z END RequestId: mock-1\n'
+    ;;
+
+  *"kms list-aliases"*)
+    printf '%s\n' '{"Aliases":[{"AliasName":"alias/app-config","TargetKeyId":"1111-aaaa"},{"AliasName":"alias/payments","TargetKeyId":"2222-bbbb"}]}'
+    ;;
+  *"kms list-keys"*) printf '%s\n' '{"Keys":[{"KeyId":"1111-aaaa"},{"KeyId":"2222-bbbb"},{"KeyId":"3333-cccc"}]}' ;;
+  *"kms describe-key"*)
+    printf '%s\n' '{"KeyMetadata":{"KeyId":"2222-bbbb","Arn":"arn:aws:kms:ap-northeast-1:123456789012:key/2222-bbbb","Description":"payments key","KeyState":"Enabled","Enabled":true,"KeyUsage":"ENCRYPT_DECRYPT","KeySpec":"SYMMETRIC_DEFAULT","Origin":"AWS_KMS","KeyManager":"CUSTOMER","CreationDate":"2026-01-01T00:00:00+00:00"}}'
+    ;;
+
+  *"cloudformation list-stacks"*)
+    printf '%s\n' '{"StackSummaries":[{"StackName":"mock-app","StackStatus":"CREATE_COMPLETE","CreationTime":"2026-11-01T00:00:00Z"}]}'
+    ;;
+  *"s3api list-buckets"*)
+    printf '%s\n' '{"Buckets":[{"Name":"mock-bucket","CreationDate":"2026-11-01T00:00:00Z"}]}'
+    ;;
+
+  *)
+    printf 'mock aws: unhandled arguments: %s\n' "$*" >&2
+    exit 2
+    ;;
+esac

@@ -1,0 +1,11 @@
+#!/bin/sh
+# Mock curl: writes a placeholder archive to the --output path.
+out=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --output) shift; out="$1" ;;
+  esac
+  shift
+done
+[ -z "$out" ] && { printf 'mock curl: missing --output\n' >&2; exit 2; }
+printf 'PK mock archive\n' >"$out"

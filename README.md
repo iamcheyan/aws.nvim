@@ -92,6 +92,19 @@ Supported services:
 
 ![CloudWatch log groups buffer](media/aws_cloudwatch.png)
 
+## Testing without AWS
+
+`docs/mock-data/` ships a complete offline fixture: mock `aws`/`curl`/`unzip`/`zip`/`zipinfo` binaries, a sanitized `~/.aws/config`, and a script that builds a disposable workspace.
+
+```sh
+sh docs/mock-data/setup-demo.sh    # prints the exports to run
+export PATH="$PWD/docs/mock-data/bin:$PATH"
+export AWS_CONFIG_FILE="$PWD/docs/mock-data/aws-config"
+export AWS_PROFILE=dev
+```
+
+Then `:AwsProfile`, `:AwsLambda`, `D`/`E`, `e`/`i`/`v`, `r`, `:AwsKMS` all work against deterministic local output. Every mock call is logged to `$AWS_FAKE_LOG` as `<profile> <args>`, so a wrong `--profile` is visible immediately; `AWS_FAKE_FAIL=1` simulates `AccessDeniedException`. See `docs/mock-data/README.md` for the full list, and `spec/aws/mock_data_spec.lua` for the automated version.
+
 ## Requirements
 
 | Dependency | Version |

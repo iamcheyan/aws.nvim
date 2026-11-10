@@ -1,0 +1,10 @@
+#!/bin/sh
+# Mock zip: `zip -r out.zip . -x ...` creates a placeholder archive.
+out=""
+for arg in "$@"; do
+  case "$arg" in
+    *.zip) out="$arg" ;;
+  esac
+done
+[ -z "$out" ] && { printf 'mock zip: missing archive name\n' >&2; exit 2; }
+printf 'PK mock archive\n' >"$out"

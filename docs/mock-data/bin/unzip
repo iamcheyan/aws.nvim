@@ -1,0 +1,21 @@
+#!/bin/sh
+# Mock unzip: -Z1 lists entries, -q ... -d DIR extracts the mock source.
+if [ "${1:-}" = "-Z1" ]; then
+  printf 'app.py\n'
+  exit 0
+fi
+dest=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -d) shift; dest="$1" ;;
+  esac
+  shift
+done
+[ -z "$dest" ] && { printf 'mock unzip: missing -d\n' >&2; exit 2; }
+mkdir -p "$dest" || exit 1
+src="${AWS_FAKE_SOURCE:-}"
+if [ -n "$src" ] && [ -f "$src" ]; then
+  cp "$src" "$dest/app.py"
+else
+  printf 'def handler(event, context):\n    return {"statusCode": 200, "body": "mock"}\n' >"$dest/app.py"
+fi

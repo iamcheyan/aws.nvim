@@ -1,0 +1,2 @@
+#!/bin/sh
+printf '%s\n' '-rw-r--r--  3.0 unx      734 b-      734 defN 2026-11-09 04:40 app.py'

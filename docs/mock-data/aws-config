@@ -1,0 +1,37 @@
+# Mock ~/.aws/config used by docs/mock-data and spec/aws/mock_data_spec.lua.
+# Account IDs, roles and profiles are fictional.
+#
+#   export AWS_CONFIG_FILE="$PWD/docs/mock-data/aws-config"
+#   export AWS_PROFILE=dev
+
+[default]
+region = us-east-1
+
+[profile dev]
+role_arn = arn:aws:iam::123456789012:role/PowerUser
+source_profile = default
+region = ap-northeast-1
+
+[profile stg]
+role_arn = arn:aws:iam::123456789012:role/PowerUser
+source_profile = default
+region = ap-northeast-1
+
+[profile prod]
+role_arn = arn:aws:iam::123456789012:role/PowerUser
+source_profile = default
+region = ap-northeast-1
+
+[profile sandbox]
+role_arn = arn:aws:iam::123456789012:role/PowerUser
+source_profile = developer
+region = ap-northeast-1
+
+# No region on purpose: the statusline must fall back to "no-region".
+[profile no-region]
+role_arn = arn:aws:iam::123456789012:role/ReadOnly
+
+# Must be ignored by the profile parser.
+[sso-session corp]
+sso_start_url = https://example.awsapps.com/start
+sso_region = ap-northeast-1
