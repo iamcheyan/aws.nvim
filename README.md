@@ -414,6 +414,57 @@ aws.nvim/
         └── detail.lua              # VPC detail viewer (6 parallel calls, vertical split)
 ```
 
+## AWS profiles
+
+`aws.nvim` reads `~/.aws/config` (or `$AWS_CONFIG_FILE`) and keeps the profile list in sync with the file. Only `[default]` and `[profile <name>]` sections become profiles; `[sso-session ...]`, `[services ...]` and other sections are ignored, duplicated profile sections merge with last-wins, and missing `region` keys are tolerated.
+
+```ini
+[default]
+region = us-east-1
+
+[profile dev]
+role_arn = arn:aws:iam::123456789012:role/PowerUser
+source_profile = default
+region = ap-northeast-1
+```
+
+The current profile resolves as `$AWS_PROFILE` → the profile selected in this session → `default`.
+
+| Command | Action |
+|---|---|
+| `:AwsProfile` | Pick a profile with `vim.ui.select` (works with dressing.nvim, snacks.nvim, telescope.nvim) |
+| `:AwsProfile dev` | Switch to `dev` |
+| `:AwsProfile reload` | Re-read `~/.aws/config` |
+
+Selecting a profile sets `vim.env.AWS_PROFILE`, so every AWS CLI call — including the resource actions and the Lambda workflow — uses it, and emits a `User AwsProfileChanged` autocmd that redraws the statusline.
+
+### API
+
+```lua
+local profile = require("aws.profile")
+
+profile.current()        -- "dev"
+profile.set("prod")      -- sets $AWS_PROFILE, returns "prod"
+profile.profiles()       -- { "default", "dev", "stg", "prod" }
+profile.region("dev")    -- "ap-northeast-1" or nil
+profile.summary()        -- "dev@ap-northeast-1"
+profile.reload()         -- re-read the config file
+```
+
+### Heirline
+
+```lua
+local AwsProfile = require("aws.profile").component({ icon = "󰸏 " })
+```
+
+The component renders `󰸏 dev@ap-northeast-1`, hides itself when no profiles exist, and opens the picker on left click. Statusline refresh comes from the `AwsProfileChanged` autocmd.
+
+![AWS profile in the statusline](docs/screenshots/profile-statusline.png)
+
+![AWS profile menu from the statusline](docs/screenshots/profile-menu.png)
+
+![Profile switched to stg](docs/screenshots/profile-switched.png)
+
 ## Resource actions
 
 Every resource action operates on the AWS resource that owns the current buffer. You never type the function name, profile, region, log group, or archive name — all of it comes from metadata.

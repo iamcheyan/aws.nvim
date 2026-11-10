@@ -445,6 +445,47 @@ Commands                                               *aws-nvim-lambda-cmd*
     Show the metadata file that owns the current buffer.
 
 -------------------------------------------------------------------------------
+                                                              *:AwsProfile*
+:AwsProfile [profile]
+:AwsProfile reload
+    Without an argument, pick a profile with vim.ui.select. With a name, set
+    $AWS_PROFILE. `reload` re-reads ~/.aws/config.
+
+------------------------------------------------------------------------------
+AWS profiles                                        *aws-nvim-profile*
+
+    Profiles are read from ~/.aws/config or $AWS_CONFIG_FILE. Only `[default]`
+    and `[profile <name>]` sections are profiles; `[sso-session ...]`,
+    `[services ...]` and other sections are ignored. Duplicate profile
+    sections merge with last-wins, and a missing region is allowed.
+
+        [profile dev]
+        role_arn = arn:aws:iam::123456789012:role/PowerUser
+        source_profile = default
+        region = ap-northeast-1
+
+    The current profile resolves as $AWS_PROFILE, then the profile selected in
+    this session, then `default`. Selecting a profile runs
+    `vim.env.AWS_PROFILE = <name>` and emits `User AwsProfileChanged`, which
+    redraws the statusline.
+
+    Lua API:
+
+        require("aws.profile").current()      -- "dev"
+        require("aws.profile").set("prod")    -- returns "prod"
+        require("aws.profile").profiles()     -- { "default", "dev", ... }
+        require("aws.profile").region("dev")  -- "ap-northeast-1" or nil
+        require("aws.profile").summary()      -- "dev@ap-northeast-1"
+        require("aws.profile").reload()
+
+    Heirline:
+
+        local AwsProfile = require("aws.profile").component({ icon = "󰸏 " })
+
+    The component hides itself when no profiles exist and opens the picker on
+    left click.
+
+------------------------------------------------------------------------------
 Resource actions                                  *aws-nvim-resource*
 
     Every action discovers the resource from the current buffer:

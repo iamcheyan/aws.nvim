@@ -965,6 +965,45 @@ lambda_workflow_command("AwsMetadata", "show metadata for the AWS resource behin
   require("aws.resource").show_metadata(opts)
 end)
 
+vim.api.nvim_create_user_command("AwsProfile", function(opts)
+  local profile = require("aws.profile")
+  local arg = opts.fargs[1]
+  if arg == nil or arg == "" then
+    profile.pick()
+  elseif arg == "reload" then
+    local names = profile.reload()
+    vim.notify("aws.nvim: reloaded " .. #names .. " profile(s)")
+  else
+    local name, err = profile.set(arg)
+    if not name then
+      vim.notify("aws.nvim: " .. tostring(err), vim.log.levels.ERROR)
+    end
+  end
+end, {
+  nargs = "?",
+  desc = "aws.nvim: select or set the AWS profile",
+  complete = function(arglead)
+    local out = {}
+    for _, name in ipairs(require("aws.profile").profiles()) do
+      if name:find(arglead, 1, true) == 1 then
+        table.insert(out, name)
+      end
+    end
+    if ("reload"):find(arglead, 1, true) == 1 then
+      table.insert(out, "reload")
+    end
+    return out
+  end,
+})
+
+vim.api.nvim_create_autocmd("User", {
+  group = vim.api.nvim_create_augroup("AwsProfileRefresh", { clear = true }),
+  pattern = "AwsProfileChanged",
+  callback = function()
+    pcall(vim.cmd, "redrawstatus!")
+  end,
+})
+
 vim.api.nvim_create_user_command("AwsKMS", function(opts)
   local _, call_opts = parse_flags(opts.fargs)
   aws.kms.list_keys(call_opts)

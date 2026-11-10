@@ -13,6 +13,7 @@
 :AwsLogs	aws-nvim.txt	/*:AwsLogs*
 :AwsMetadata	aws-nvim.txt	/*:AwsMetadata*
 :AwsPicker	aws-nvim.txt	/*:AwsPicker*
+:AwsProfile	aws-nvim.txt	/*:AwsProfile*
 :AwsRefresh	aws-nvim.txt	/*:AwsRefresh*
 :AwsS3	aws-nvim.txt	/*:AwsS3*
 :AwsSM	aws-nvim.txt	/*:AwsSM*
@@ -82,6 +83,7 @@ aws-nvim-lambda-invoke	aws-nvim.txt	/*aws-nvim-lambda-invoke*
 aws-nvim-lambda-keys	aws-nvim.txt	/*aws-nvim-lambda-keys*
 aws-nvim-lambda-payload	aws-nvim.txt	/*aws-nvim-lambda-payload*
 aws-nvim-picker	aws-nvim.txt	/*aws-nvim-picker*
+aws-nvim-profile	aws-nvim.txt	/*aws-nvim-profile*
 aws-nvim-requirements	aws-nvim.txt	/*aws-nvim-requirements*
 aws-nvim-resource	aws-nvim.txt	/*aws-nvim-resource*
 aws-nvim-s3	aws-nvim.txt	/*aws-nvim-s3*

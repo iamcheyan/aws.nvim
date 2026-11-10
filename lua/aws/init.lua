@@ -17,6 +17,9 @@ M.s3 = require("aws.s3")
 --- CloudWatch operations.
 M.cloudwatch = require("aws.cloudwatch")
 
+--- AWS profile discovery and switching.
+M.profile = require("aws.profile")
+
 --- Unified resource actions (download/upload/invoke/logs/refresh/metadata).
 M.resource = require("aws.resource")
 
