@@ -467,10 +467,10 @@ profile.reload()         -- re-read the config file
 ### Heirline
 
 ```lua
-local AwsProfile = require("aws.profile").component({ icon = "󰸏 " })
+local AwsProfile = require("aws.profile").component()
 ```
 
-The component renders `󰸏 dev@ap-northeast-1`, hides itself when no profiles exist, and opens the picker on left click. Statusline refresh comes from the `AwsProfileChanged` autocmd.
+The component renders ` dev@ap-northeast-1 ` (one space of padding on each side, no icon), hides itself when no profiles exist, and opens the picker on left click. Pass `icon = "󰸏 "` if you want an icon back. Statusline refresh comes from the `AwsProfileChanged` autocmd.
 
 ![AWS profile in the statusline](docs/screenshots/profile-statusline.png)
 

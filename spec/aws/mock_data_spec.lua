@@ -138,6 +138,8 @@ describe("mock AWS data", function()
   end)
 
   it("renders the mock KMS key list", function()
+    -- drop cached module state (filters) left by other specs
+    package.loaded["aws.kms"] = nil
     require("aws.kms").list_keys()
     local buf = vim.api.nvim_get_current_buf()
     wait_for(function()

@@ -177,6 +177,19 @@ describe("AWS profiles", function()
     assert.equals("prod", vim.env.AWS_PROFILE)
   end)
 
+  it("renders the statusline component without an icon and with padding", function()
+    vim.env.AWS_PROFILE = "dev"
+    profile.reload()
+    local component = profile.component()
+    assert.equals(" dev@ap-northeast-1 ", component.provider())
+    assert.equals(" X dev@ap-northeast-1 ", profile.component({ icon = "X " }).provider())
+
+    vim.fn.delete(config_path)
+    profile.reload()
+    vim.env.AWS_PROFILE = nil
+    assert.equals("", profile.component().provider())
+  end)
+
   it("reports when no profiles exist", function()
     vim.fn.delete(config_path)
     profile.reload()

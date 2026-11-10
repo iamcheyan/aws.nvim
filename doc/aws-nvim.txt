@@ -480,7 +480,7 @@ AWS profiles                                        *aws-nvim-profile*
 
     Heirline:
 
-        local AwsProfile = require("aws.profile").component({ icon = "󰸏 " })
+        local AwsProfile = require("aws.profile").component()
 
     The component hides itself when no profiles exist and opens the picker on
     left click.

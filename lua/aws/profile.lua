@@ -204,7 +204,10 @@ function M.component(opts)
   opts = opts or {}
   return {
     provider = function()
-      return (opts.icon or "󰸏 ") .. M.summary()
+      if #M.profiles() == 0 then
+        return ""
+      end
+      return " " .. (opts.icon or "") .. M.summary() .. " "
     end,
     hl = opts.hl or "DiagnosticInfo",
     on_click = {
